@@ -1,0 +1,211 @@
+.det-mode-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.det-tab--active {
+  border-color: rgba(52, 211, 153, 0.55) !important;
+  background: rgba(16, 185, 129, 0.08) !important;
+  color: #e5e7eb !important;
+}
+
+.det-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.det-status {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.det-zone {
+  padding: 0.75rem;
+  cursor: pointer;
+}
+
+.det-stage {
+  position: relative;
+  width: 100%;
+  max-height: 520px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.det-media {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 520px;
+  border-radius: 12px;
+  display: block;
+  background: #020617;
+}
+
+.det-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  border-radius: 12px;
+}
+
+.det-empty {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 2.25rem 0;
+}
+
+.det-empty-title {
+  font-size: 0.95rem;
+  color: #e5e7eb;
+}
+
+.det-empty-sub {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.det-list-empty {
+  border-radius: 12px;
+  border: 1px solid rgba(31, 41, 55, 0.95);
+  background: #020617;
+  padding: 0.85rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.det-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.det-item {
+  text-align: left;
+  border-radius: 12px;
+  border: 1px solid rgba(31, 41, 55, 0.95);
+  background: #020617;
+  padding: 0.6rem 0.65rem;
+  cursor: pointer;
+}
+
+.det-item--active {
+  border-color: rgba(52, 211, 153, 0.55);
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.18);
+}
+
+.det-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.det-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  font-size: 0.74rem;
+  font-weight: 500;
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.det-score {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.det-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(31, 41, 55, 0.9);
+  overflow: hidden;
+}
+
+.det-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+/* Object Detection: stage expands until results panel is shown */
+.det-stage {
+  transition: max-height 0.42s ease;
+}
+
+.det-stage--full {
+  max-height: 720px;
+}
+
+.det-stage-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: rgba(2, 6, 23, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.det-stage-loading::before {
+  content: '';
+  position: absolute;
+  top: -35%;
+  left: -45%;
+  width: 60%;
+  height: 170%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(34, 211, 238, 0.35),
+    rgba(167, 139, 250, 0.28),
+    transparent
+  );
+  animation: detShimmer 1.1s infinite linear;
+}
+
+.det-stage-loading > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes detShimmer {
+  from { transform: translateX(0); }
+  to { transform: translateX(260%); }
+}
+/* Hide detected-objects panel until Run/Start detection */
+.det-no-results > .panel:nth-child(2) {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-8px);
+  overflow: hidden;
+  pointer-events: none;
+  margin: 0;
+}
+
+.det-has-results > .panel:nth-child(2) {
+  opacity: 1;
+  max-height: 900px;
+  transform: translateY(0);
+  pointer-events: auto;
+  transition: max-height 0.42s ease, opacity 0.25s ease, transform 0.42s ease;
+}
+
+.det-no-results > .panel:nth-child(2) {
+  transition: max-height 0.42s ease, opacity 0.25s ease, transform 0.42s ease;
+}
