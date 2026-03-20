@@ -11,6 +11,21 @@ function clampPct(x: number) {
   return Math.max(0, Math.min(100, x));
 }
 
+/**
+ * Генерує унікальний HSL колір для конкретного класу об'єкта.
+ *
+ * @description
+ * Використовує хеш-функцію на основі символів рядка для генерації
+ * детермінованого кольору. Один і той самий клас завжди отримує
+ * однаковий колір між різними запусками детекції.
+ *
+ * @param {string} label - Назва класу об'єкта (наприклад 'person', 'car')
+ * @returns {string} CSS колір у форматі HSL
+ *
+ * @example
+ * colorForLabel('person') // повертає 'hsl(120 85% 60%)'
+ * colorForLabel('car')    // повертає 'hsl(45 85% 60%)'
+ */
 function colorForLabel(label: string) {
   let hash = 0;
   for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) | 0;
@@ -93,7 +108,7 @@ export function ObjectDetectionPage() {
   }, []);
 
   useEffect(() => {
-    // switching mode: stop webcam + clear overlay, keep uploaded image if any
+    
     stopWebcam();
     setDetections([]);
     setActiveIdx(null);

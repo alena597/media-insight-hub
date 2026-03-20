@@ -87,17 +87,31 @@ export function OcrLabPage() {
     );
   };
 
+  
+  /**
+ * Запускає процес OCR розпізнавання тексту на завантаженому зображенні.
+ *
+ * @description
+ * Функція ініціалізує Tesseract.js движок, запускає анімацію лазерного
+ * сканування та виконує розпізнавання тексту. Після завершення оновлює
+ * стан компонента з результатами: розпізнаний текст, bounding boxes,
+ * кількість слів та середній confidence score.
+ *
+ * @returns {Promise<void>} Проміс який вирішується після завершення OCR
+ *
+ * @example
+ * // Викликається при натисканні кнопки "Run OCR"
+ * <button onClick={handleRunOcr}>Run OCR</button>
+ */
   const handleRunOcr = useCallback(async () => {
     if (!imageUrl || isRunning) return;
-    // Counts processing runs for the Dashboard
     try {
       const key = "mih_analyses_count";
       const cur = Number(localStorage.getItem(key) || "0");
       localStorage.setItem(key, String(cur + 1));
     } catch {
-      // ignore (e.g., localStorage disabled)
+      // intentionally empty
     }
-    // Ensure bbox scaling has correct natural dimensions even if image load raced OCR.
     const el = imgRef.current;
     if (el?.naturalWidth && el?.naturalHeight) {
       setImageSize({ width: el.naturalWidth, height: el.naturalHeight });

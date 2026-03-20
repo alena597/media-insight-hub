@@ -53,6 +53,24 @@ const CATEGORY_ORDER: CategoryKey[] = [
   'other'
 ];
 
+/**
+ * Маппує назву класу ImageNet на категорію проєкту.
+ *
+ * @description
+ * Функція нормалізує назву класу (видаляє ID, замінює підкреслення)
+ * та порівнює з ключовими словами кожної категорії.
+ * Категорії перевіряються у визначеному пріоритеті: people → tech →
+ * clothing → interior → animals → furniture → nature → transport →
+ * tableware → food → other.
+ *
+ * @param {string} classNames - Назва класу з моделі MobileNet (наприклад 'n02123045 tabby cat')
+ * @returns {CategoryKey} Ключ категорії проєкту
+ *
+ * @example
+ * mapLabelToCategory('n02123045 tabby cat') // повертає 'animals'
+ * mapLabelToCategory('laptop computer')      // повертає 'tech'
+ * mapLabelToCategory('unknown object')       // повертає 'other'
+ */
 function mapLabelToCategory(classNames: string): CategoryKey {
   const l = classNames
     .replace(/\bn\d+\s*/g, '')
@@ -142,6 +160,16 @@ function mapLabelToCategory(classNames: string): CategoryKey {
   return 'other';
 }
 
+/**
+ * Повертає відсоток впевненості для першого прогнозу елемента галереї.
+ *
+ * @param {GalleryItem} item - Елемент галереї з результатами класифікації
+ * @returns {number | null} Відсоток впевненості (0-100) або null якщо прогнозів немає
+ *
+ * @example
+ * getConfidencePct({ predictions: [{ probability: 0.87 }] }) // повертає 87
+ * getConfidencePct({ predictions: [] })                       // повертає null
+ */
 function getConfidencePct(item: GalleryItem): number | null {
   if (!item.predictions || item.predictions.length === 0) return null;
   return Math.round(item.predictions[0].probability * 100);
@@ -243,7 +271,7 @@ export function SmartGalleryPage() {
       const cur = Number(localStorage.getItem(key) || "0");
       localStorage.setItem(key, String(cur + 1));
     } catch {
-      // ignore
+      // intentionally empty
     }
     setIsClassifying(true);
     const m = await ensureModel();
