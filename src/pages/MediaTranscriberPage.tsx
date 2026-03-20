@@ -28,12 +28,6 @@ function nowMs() {
   return performance.now();
 }
 
-function fmtTime(ms: number) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const mm = String(Math.floor(s / 60)).padStart(2, "0");
-  const ss = String(s % 60).padStart(2, "0");
-  return `${mm}:${ss}`;
-}
 
 function normalizeWords(s: string) {
   return s
@@ -283,7 +277,7 @@ export function MediaTranscriberPage() {
   const [mode, setMode] = useState<Mode>("text");
   const [lang, setLang] = useState<"uk-UA" | "en-US">("uk-UA");
   const [isListening, setIsListening] = useState(false);
-  const [status, setStatus] = useState("Ready");
+  const [, setStatus] = useState("Ready");
   const [interim, setInterim] = useState("");
   const [segments, setSegments] = useState<Segment[]>([]);
   const [text, setText] = useState("");
@@ -423,9 +417,6 @@ export function MediaTranscriberPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
 
-  const segmentsForView = useMemo(() => {
-    return segments.map((s) => ({ ...s, time: fmtTime(s.tMs) }));
-  }, [segments]);
 
   const showSentimentPanel = mode === "mic" ? segments.length > 0 : text.trim().length > 0;
 

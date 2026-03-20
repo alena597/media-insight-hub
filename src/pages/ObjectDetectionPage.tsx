@@ -27,7 +27,7 @@ export function ObjectDetectionPage() {
   const [mode, setMode] = useState<Mode>('image');
   const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
   const [isLoadingModel, setIsLoadingModel] = useState(false);
-  const [status, setStatus] = useState('');
+  const [, setStatus] = useState('');
   const [isRunning, setIsRunning] = useState(false);
 
 
@@ -90,7 +90,6 @@ export function ObjectDetectionPage() {
 
   useEffect(() => {
     return () => stopWebcam();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -101,7 +100,6 @@ export function ObjectDetectionPage() {
     const c = overlayRef.current;
     if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
     setStatus("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
   const handleFiles = (files: FileList | null) => {
@@ -175,7 +173,6 @@ export function ObjectDetectionPage() {
       const tag = `${label} · ${Math.round(score * 100)}%`;
       ctx.font = '12px system-ui, -apple-system, Segoe UI, sans-serif';
       const padX = 6;
-      const padY = 4;
       const tw = ctx.measureText(tag).width;
       const th = 16;
       ctx.fillStyle = 'rgba(2, 6, 23, 0.85)';

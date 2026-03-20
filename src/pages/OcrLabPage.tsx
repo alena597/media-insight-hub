@@ -14,7 +14,7 @@ export function OcrLabPage() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<OcrBlock[]>([]);
   const [text, setText] = useState('');
-  const [status, setStatus] = useState('Waiting for image');
+  const [, setStatus] = useState('Waiting for image');
   const [isRunning, setIsRunning] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [lang, setLang] = useState<OcrLang>('eng+ukr');
