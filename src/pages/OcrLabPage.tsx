@@ -135,9 +135,10 @@ export function OcrLabPage() {
           confidence: b.confidence ?? 0
         })) ?? [];
 
-      if (data.imageSize && data.imageSize.width && data.imageSize.height) {
-        setImageSize({ width: data.imageSize.width, height: data.imageSize.height });
-      }
+        const dataWithSize = data as typeof data & { imageSize?: { width: number; height: number } };
+if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
+  setImageSize({ width: dataWithSize.imageSize.width, height: dataWithSize.imageSize.height });
+}
 
       setBlocks(blocksData);
       setText(data.text);

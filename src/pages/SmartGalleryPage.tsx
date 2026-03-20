@@ -22,7 +22,7 @@ type GalleryItem = {
   fileName: string;
   url: string;
   category: CategoryKey;
-  predictions: mobilenet.ClassificationPrediction[];
+  predictions: Array<{ className: string; probability: number }>;
 };
 
 const CATEGORY_LABELS: Record<CategoryKey, string> = {
