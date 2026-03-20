@@ -1,0 +1,12 @@
+{
+    "entryPoints": ["src/pages", "src/App.tsx", "src/main.tsx"],
+    "entryPointStrategy": "expand",
+    "out": "docs/api",
+    "name": "AI Transparency Media Lab",
+    "readme": "README.md",
+    "includeVersion": true,
+    "excludePrivate": false,
+    "excludeInternal": false,
+    "plugin": [],
+    "tsconfig": "./tsconfig.json"
+  }
