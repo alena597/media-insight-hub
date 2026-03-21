@@ -7,6 +7,23 @@ import { MediaTranscriberPage } from './pages/MediaTranscriberPage';
 
 type NavIconKind = 'home' | 'document' | 'gallery' | 'target' | 'mic';
 
+
+/**
+ * Рендерить SVG іконку для навігаційного меню.
+ *
+ * @description
+ * Компонент повертає відповідну SVG іконку залежно від типу.
+ * Використовується у бічній панелі навігації для візуального
+ * позначення кожного модуля системи.
+ *
+ * @param {object} props - Пропси компонента
+ * @param {NavIconKind} props.kind - Тип іконки
+ * @returns {JSX.Element} SVG іконка
+ *
+ * @example
+ * <NavIcon kind="home" />
+ * <NavIcon kind="document" />
+ */
 function NavIcon({ kind }: { kind: NavIconKind }) {
   if (kind === 'document') {
     return (
@@ -112,6 +129,19 @@ function NavIcon({ kind }: { kind: NavIconKind }) {
   );
 }
 
+/**
+ * Кореневий компонент застосунку.
+ *
+ * @description
+ * Визначає загальну структуру застосунку — бічна панель навігації
+ * та основна область контенту з маршрутизацією між чотирма
+ * AI-модулями: OCR, Smart Gallery, Object Detection, Media Transcriber.
+ *
+ * Архітектурне рішення: SPA з клієнтською маршрутизацією через
+ * React Router. Всі AI-моделі завантажуються на стороні клієнта.
+ *
+ * @returns {JSX.Element} Кореневий елемент застосунку
+ */
 export function App() {
   return (
     <div className='app-root'>

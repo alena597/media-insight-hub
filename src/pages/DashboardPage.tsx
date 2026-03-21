@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 
+/**
+ * Головна сторінка застосунку — дашборд з оглядом модулів.
+ *
+ * @description
+ * Відображає статистику використання (кількість аналізів з localStorage),
+ * список доступних AI-модулів у вигляді карток з навігацією.
+ * Лічильник аналізів зберігається у localStorage під ключем
+ * `mih_analyses_count` і оновлюється кожним модулем після обробки.
+ *
+ * @returns {JSX.Element} Сторінка дашборду
+ */
 export function DashboardPage() {
   const [analysesCount, setAnalysesCount] = useState(0);
 
@@ -79,6 +90,7 @@ export function DashboardPage() {
   );
 }
 
+
 type DashboardCardProps = {
   to: string;
   icon: 'document' | 'gallery' | 'target' | 'mic';
@@ -88,6 +100,22 @@ type DashboardCardProps = {
   accentClass: string;
 };
 
+/**
+ * Картка модуля на дашборді з навігацією.
+ *
+ * @description
+ * Клікабельна картка яка веде до відповідного AI-модуля.
+ * Відображає іконку, назву, короткий опис та технологічний тег.
+ *
+ * @param {DashboardCardProps} props - Пропси картки
+ * @param {string} props.to - Шлях маршруту
+ * @param {string} props.icon - Тип іконки
+ * @param {string} props.title - Назва модуля
+ * @param {string} props.subtitle - Короткий опис
+ * @param {string} props.tag - Технологічний тег
+ * @param {string} props.accentClass - CSS клас акцентного кольору
+ * @returns {JSX.Element} Картка модуля
+ */
 function DashboardCard({ to, icon, title, subtitle, tag, accentClass }: DashboardCardProps) {
   return (
     <NavLink to={to} className={`dash-card ${accentClass}`}>
@@ -110,6 +138,17 @@ type CardIconProps = {
   kind: 'document' | 'gallery' | 'target' | 'mic';
 };
 
+/**
+ * SVG іконка для картки модуля на дашборді.
+ *
+ * @param {CardIconProps} props - Пропси компонента
+ * @param {string} props.kind - Тип іконки
+ * @returns {JSX.Element} SVG іконка
+ *
+ * @example
+ * <CardIcon kind="document" />
+ * <CardIcon kind="gallery" />
+ */
 function CardIcon({ kind }: CardIconProps) {
   if (kind === 'document') {
     return (

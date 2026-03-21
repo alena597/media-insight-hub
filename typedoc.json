@@ -1,4 +1,4 @@
-{
+  {
     "entryPoints": ["src/pages", "src/App.tsx", "src/main.tsx"],
     "entryPointStrategy": "expand",
     "out": "docs/api",
@@ -8,5 +8,6 @@
     "excludePrivate": false,
     "excludeInternal": false,
     "plugin": [],
-    "tsconfig": "./tsconfig.json"
+    "tsconfig": "./tsconfig.json",
+    "blockTags": ["@description", "@param", "@returns", "@example", "@remarks"]
   }

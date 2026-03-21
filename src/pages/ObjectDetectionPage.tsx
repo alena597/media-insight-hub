@@ -7,6 +7,17 @@ type Mode = 'image' | 'webcam';
 
 type Det = cocoSsd.DetectedObject;
 
+/**
+ * Обмежує числове значення в діапазоні від 0 до 100.
+ *
+ * @param {number} x - Вхідне значення
+ * @returns {number} Значення в діапазоні [0, 100]
+ *
+ * @example
+ * clampPct(150) // повертає 100
+ * clampPct(-5)  // повертає 0
+ * clampPct(75)  // повертає 75
+ */
 function clampPct(x: number) {
   return Math.max(0, Math.min(100, x));
 }
@@ -33,11 +44,40 @@ function colorForLabel(label: string) {
   return `hsl(${hue} 85% 60%)`;
 }
 
+/**
+ * Форматує score детекції об'єкта у рядок відсотка.
+ *
+ * @param {number | undefined} score - Значення впевненості від 0 до 1
+ * @returns {string} Відформатований рядок відсотка або '—' якщо значення відсутнє
+ *
+ * @example
+ * fmtPct(0.94)      // повертає '94%'
+ * fmtPct(undefined) // повертає '—'
+ */
 function fmtPct(score: number | undefined) {
   if (typeof score !== 'number') return '—';
   return `${Math.round(score * 100)}%`;
 }
 
+/**
+ * Сторінка детекції об'єктів за допомогою моделі COCO-SSD.
+ *
+ * @description
+ * Підтримує два режими роботи:
+ * - Image: завантаження статичного зображення та одноразова детекція
+ * - Webcam: детекція в реальному часі через getUserMedia з ~5 FPS
+ *
+ * Архітектурне рішення: canvas-оверлей накладається поверх
+ * зображення/відео через абсолютне позиціонування. Координати
+ * bounding boxes масштабуються через scaleX/scaleY коефіцієнти
+ * між натуральним розміром медіа та відображуваним розміром.
+ *
+ * Взаємодія компонентів:
+ * - COCO-SSD model.detect() → detections → draw() → canvas overlay
+ * - Клік на список об'єктів → activeIdx → перемальовування canvas
+ *
+ * @returns {JSX.Element} Сторінка детекції об'єктів
+ */
 export function ObjectDetectionPage() {
   const [mode, setMode] = useState<Mode>('image');
   const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);

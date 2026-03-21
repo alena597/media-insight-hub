@@ -10,6 +10,26 @@ type OcrBlock = {
 
 type OcrLang = 'eng' | 'ukr' | 'eng+ukr';
 
+/**
+ * Сторінка OCR лабораторії для розпізнавання тексту з зображень.
+ *
+ * @description
+ * Модуль реалізує повний цикл OCR обробки:
+ * 1. Завантаження зображення через drag & drop або файловий діалог
+ * 2. Анімація лазерного сканування через GSAP
+ * 3. Розпізнавання тексту через Tesseract.js
+ * 4. Відображення bounding boxes поверх зображення
+ * 5. Виведення розпізнаного тексту з логом операцій
+ *
+ * Архітектурне рішення: bounding boxes масштабуються через
+ * коефіцієнти scaleX/scaleY між натуральним розміром зображення
+ * та відображуваним розміром контейнера.
+ *
+ * Лічильник аналізів зберігається у localStorage під ключем
+ * `mih_analyses_count` для відображення на дашборді.
+ *
+ * @returns {JSX.Element} Сторінка OCR лабораторії
+ */
 export function OcrLabPage() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<OcrBlock[]>([]);

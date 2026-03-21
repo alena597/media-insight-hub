@@ -24,11 +24,29 @@ type SpeechRecognitionLike = {
   stop: () => void;
 };
 
+/**
+ * Повертає поточний час у мілісекундах з високою точністю.
+ *
+ * @returns {number} Час у мілісекундах від початку сесії
+ */
 function nowMs() {
   return performance.now();
 }
 
-
+/**
+ * Нормалізує рядок для аналізу тональності.
+ *
+ * @description
+ * Переводить у нижній регістр, видаляє спеціальні символи
+ * (крім літер, цифр, пробілів, апострофів і дефісів),
+ * замінює множинні пробіли одним та обрізає краї.
+ *
+ * @param {string} s - Вхідний рядок
+ * @returns {string} Нормалізований рядок
+ *
+ * @example
+ * normalizeWords('Привіт, Світ!!!') // повертає 'привіт світ'
+ */
 function normalizeWords(s: string) {
   return s
     .toLowerCase()
@@ -128,12 +146,43 @@ const NEG = [
   "doesnt work"
 ];
 
+/**
+ * Розбиває текст на токени (слова) для аналізу тональності.
+ *
+ * @param {string} text - Вхідний текст
+ * @returns {string[]} Масив нормалізованих слів
+ *
+ * @example
+ * tokenize('Це чудовий день') // повертає ['це', 'чудовий', 'день']
+ */
 function tokenize(text: string): string[] {
   const n = normalizeWords(text);
   if (!n) return [];
   return n.split(' ').filter(Boolean);
 }
 
+/**
+ * Аналізує тональність тексту на основі словникового методу.
+ *
+ * @description
+ * Алгоритм аналізу тональності:
+ * 1. Токенізує текст через normalizeWords + split
+ * 2. Перевіряє наявність негативних патернів (регулярні вирази)
+ * 3. Аналізує пунктуацію (?, !, ...)
+ * 4. Порівнює токени з позитивним/негативним словниками (POS/NEG)
+ * 5. Обробляє заперечення (не, ні, not, no, don't)
+ * 6. Перевіряє кореневі відповідності для української мови
+ *
+ * Підтримує українську та англійську мови.
+ * Score > 0.05 = позитивна, < -0.05 = негативна, решта = нейтральна.
+ *
+ * @param {string} text - Текст для аналізу
+ * @returns {{ sentiment: Sentiment; score: number }} Результат аналізу
+ *
+ * @example
+ * analyzeSentiment('Це чудово!') // { sentiment: 'positive', score: 1 }
+ * analyzeSentiment('Жах і жахливо') // { sentiment: 'negative', score: -1 }
+ */
 function analyzeSentiment(text: string): { sentiment: Sentiment; score: number } {
   const tokens = tokenize(text);
   if (tokens.length === 0) return { sentiment: "neutral", score: 0 };
@@ -267,12 +316,38 @@ function analyzeSentiment(text: string): { sentiment: Sentiment; score: number }
   const score = total === 0 ? 0 : (pos - neg) / total;
   const sentiment: Sentiment = score > 0.05 ? "positive" : score < -0.05 ? "negative" : "neutral";
   return { sentiment, score };
-}function sentimentLabel(s: Sentiment) {
+}
+
+/**
+ * Повертає текстову мітку для типу тональності.
+ *
+ * @param {Sentiment} s - Тип тональності
+ * @returns {string} Текстова мітка англійською
+ *
+ * @example
+ * sentimentLabel('positive') // повертає 'Positive'
+ * sentimentLabel('neutral')  // повертає 'Neutral'
+ */
+function sentimentLabel(s: Sentiment) {
   if (s === "positive") return "Positive";
   if (s === "negative") return "Negative";
   return "Neutral";
 }
 
+/**
+ * Сторінка транскрибації медіа та аналізу тональності.
+ *
+ * @description
+ * Модуль підтримує два режими роботи:
+ * - Запис мікрофону через Web Speech API з реалтайм транскрибацією
+ * - Вставка тексту вручну для аналізу тональності
+ *
+ * Взаємодія між компонентами:
+ * - Web Speech API → segments → analyzeSentiment → summary
+ * - summary відображається у правій панелі з барами та списком речень
+ *
+ * @returns {JSX.Element} Сторінка транскрибера
+ */
 export function MediaTranscriberPage() {
   const [mode, setMode] = useState<Mode>("text");
   const [lang, setLang] = useState<"uk-UA" | "en-US">("uk-UA");

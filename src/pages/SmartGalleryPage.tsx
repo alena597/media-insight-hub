@@ -175,6 +175,16 @@ function getConfidencePct(item: GalleryItem): number | null {
   return Math.round(item.predictions[0].probability * 100);
 }
 
+/**
+ * Головний компонент сторінки "Розумна галерея".
+ * 
+ * @description
+ * Дозволяє користувачам завантажувати до 20 зображень, класифікувати їх 
+ * за допомогою моделі MobileNet v2 та переглядати результати, 
+ * відфільтровані за категоріями.
+ * 
+ * @returns {JSX.Element} Елемент сторінки галереї
+ */
 export function SmartGalleryPage() {
   const [model, setModel] = useState<mobilenet.MobileNet | null>(null);
   const [items, setItems] = useState<GalleryItem[]>([]);
