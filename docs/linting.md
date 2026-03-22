@@ -2,7 +2,7 @@
 
 ## Обраний лінтер
 
-**ESLint v9** з плагінами `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`.
+ESLint v9 з плагінами `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`.
 
 ### Причини вибору
 - Стандартний інструмент для React/TypeScript проєктів
@@ -32,7 +32,7 @@ npm run lint:fix
 
 ## Результати першого запуску
 
-Початковий стан: **15 проблем (7 errors, 8 warnings)**
+Початковий стан: 15 проблем (7 errors, 8 warnings)
 
 | Файл | Проблема | Тип |
 |---|---|---|
@@ -47,7 +47,7 @@ npm run lint:fix
 
 ## Виправлені проблеми
 
-Після виправлень: **0 проблем**
+Після виправлень: 0 проблем
 
 1. Видалено невикористані змінні `status`, `segmentsForView`, `padY`
 2. Видалено невикористану функцію `fmtTime`
@@ -57,7 +57,7 @@ npm run lint:fix
 
 ## Git Hooks
 
-Налаштовано pre-commit хук через **husky** який автоматично запускає лінтер перед кожним комітом. Якщо лінтер знаходить помилки — коміт блокується.
+Налаштовано pre-commit хук через husky який автоматично запускає лінтер перед кожним комітом. Якщо лінтер знаходить помилки — коміт блокується.
 
 ## Інтеграція з процесом збірки
 
@@ -72,4 +72,4 @@ npm run lint:fix
 
 ## Статична типізація
 
-Використовується **TypeScript** з `tsc --noEmit` для перевірки типів без генерації файлів. Виправлені помилки типізації у `OcrLabPage.tsx` та `SmartGalleryPage.tsx`.
+Використовується TypeScript з `tsc --noEmit` для перевірки типів без генерації файлів. Виправлені помилки типізації у `OcrLabPage.tsx` та `SmartGalleryPage.tsx`.
