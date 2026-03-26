@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
 import '@tensorflow/tfjs';
+import { useAuth } from '../hooks/useAuth';
+import { dataUrlFromImageElement, thumbnailFromDataUrl } from '../lib/imageData';
+import { consumeResumeForPath } from '../lib/mihResumeBridge';
+import type { MihResumeDetection } from '../lib/mihResume';
+import { detectionsFromResume } from '../lib/mihResume';
+import { saveLastWorkbenchResume } from '../lib/lastWorkbenchSession';
+import { addHistoryEntry } from '../lib/userDataApi';
+import { FavoriteResultStar } from '../components/FavoriteResultStar';
 import '../theme/det.css';
 
 type Mode = 'image' | 'webcam';
@@ -79,6 +88,11 @@ function fmtPct(score: number | undefined) {
  * @returns {JSX.Element} Сторінка детекції об'єктів
  */
 export function ObjectDetectionPage() {
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const resumeApplied = useRef(false);
+
   const [mode, setMode] = useState<Mode>('image');
   const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
   const [isLoadingModel, setIsLoadingModel] = useState(false);
@@ -100,9 +114,104 @@ export function ObjectDetectionPage() {
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef<number>(0);
 
+  const [detectionResultSnapshot, setDetectionResultSnapshot] = useState<{
+    previewImage: string;
+    resumePayload: string;
+  } | null>(null);
+
   const sorted = useMemo(() => {
     return [...detections].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   }, [detections]);
+
+  useEffect(() => {
+    if (resumeApplied.current) return;
+    const st = location.state as { mihResume?: unknown } | undefined;
+    let raw: unknown = st?.mihResume;
+    if (!raw || typeof raw !== 'object') {
+      const bridged = consumeResumeForPath('/detection');
+      if (bridged && typeof bridged === 'object') raw = bridged;
+    }
+    if (!raw || typeof raw !== 'object') return;
+    const o = raw as Record<string, unknown>;
+    if (o.module !== 'detection' || o.mode !== 'image' || typeof o.imageDataUrl !== 'string') return;
+    resumeApplied.current = true;
+    navigate('/detection', { replace: true, state: {} });
+    setMode('image');
+    setImageUrl(o.imageDataUrl);
+    const rawDets = Array.isArray(o.detections) ? o.detections : [];
+    const restored = detectionsFromResume(
+      rawDets as MihResumeDetection['detections']
+    ) as Det[];
+    setDetections(restored);
+    setActiveIdx(restored.length ? 0 : null);
+    void (async () => {
+      try {
+        const full = o.imageDataUrl as string;
+        const thumb = await thumbnailFromDataUrl(full, 320);
+        const payload: MihResumeDetection = {
+          v: 1,
+          module: 'detection',
+          mode: 'image',
+          imageDataUrl: full,
+          detections: restored.map((d) => ({
+            bbox: d.bbox as [number, number, number, number],
+            class: d.class ?? 'object',
+            score: d.score ?? 0
+          }))
+        };
+        setDetectionResultSnapshot({
+          previewImage: thumb,
+          resumePayload: JSON.stringify(payload)
+        });
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [location.state, navigate]);
+
+  const buildDetectionSnapshot = async (dets: Det[]) => {
+    const img = imgRef.current;
+    if (!img || mode !== 'image' || dets.length === 0) return null;
+    try {
+      const full = await dataUrlFromImageElement(img, 920, 0.8);
+      const payload: MihResumeDetection = {
+        v: 1,
+        module: 'detection',
+        mode: 'image',
+        imageDataUrl: full,
+        detections: dets.map((d) => ({
+          bbox: d.bbox as [number, number, number, number],
+          class: d.class ?? 'object',
+          score: d.score ?? 0
+        }))
+      };
+      const s = JSON.stringify(payload);
+      if (s.length > 1_450_000) return null;
+      const thumb = await thumbnailFromDataUrl(full, 320);
+      return { s, thumb, n: dets.length };
+    } catch {
+      return null;
+    }
+  };
+
+  const logAnalysisHistory = async (dets: Det[]) => {
+    if (!user) return;
+    const snap = await buildDetectionSnapshot(dets);
+    if (!snap) return;
+    setDetectionResultSnapshot({ previewImage: snap.thumb, resumePayload: snap.s });
+    saveLastWorkbenchResume('/detection', snap.s);
+    try {
+      await addHistoryEntry({
+        kind: 'analysis',
+        label: `Детекція · ${snap.n} об’єктів`,
+        path: '/detection',
+        previewImage: snap.thumb,
+        resumePayload: snap.s
+      });
+    } catch {
+      /* ignore */
+    }
+  };
 
   const ensureModel = async () => {
     if (model) return model;
@@ -127,6 +236,7 @@ export function ObjectDetectionPage() {
     setDetections([]);
     setActiveIdx(null);
     setImageUrl(null);
+    setDetectionResultSnapshot(null);
     setStatus("");
     const c = overlayRef.current;
     if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
@@ -164,6 +274,7 @@ export function ObjectDetectionPage() {
     setImageUrl(url);
     setDetections([]);
     setActiveIdx(null);
+    setDetectionResultSnapshot(null);
     setStatus('Image added — press “Run detection”');
   };
 
@@ -265,6 +376,7 @@ export function ObjectDetectionPage() {
       setActiveIdx(sortedDets.length ? 0 : null);
       setStatus(sortedDets.length ? `Found: ${sortedDets.length}` : 'No objects found');
       draw(sortedDets, img);
+      void logAnalysisHistory(sortedDets);
     } catch (e) {
       console.error(e);
       setStatus('Detection error');
@@ -347,12 +459,25 @@ export function ObjectDetectionPage() {
     }
     draw(sorted, mediaEl);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIdx]);
+  }, [activeIdx, detections.length, sorted.length, mode]);
 
   return (
     <div className={"panel-grid " + (showResults ? "det-has-results" : "det-no-results")}>
 
-        <div className="panel">
+        <div className="panel det-panel--rel">
+        {user &&
+        detectionResultSnapshot &&
+        mode === 'image' &&
+        sorted.length > 0 ? (
+          <div className="mih-fav-star-host">
+            <FavoriteResultStar
+              path="/detection"
+              title={`Детекція (${sorted.length})`}
+              previewImage={detectionResultSnapshot.previewImage}
+              resumePayload={detectionResultSnapshot.resumePayload}
+            />
+          </div>
+        ) : null}
         <div className="panel-header">
           <div>
             <div className="panel-title">
@@ -427,8 +552,6 @@ export function ObjectDetectionPage() {
                   src={imageUrl}
                   alt=""
                   onLoad={() => {
-                    setDetections([]);
-                    setActiveIdx(null);
                     if (imgRef.current) syncOverlayToMedia(imgRef.current);
                   }}
                 />
@@ -492,7 +615,7 @@ export function ObjectDetectionPage() {
             })}
           </div>
         )}
-        </div>
+      </div>
 
     </div>
   );

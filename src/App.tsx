@@ -9,9 +9,10 @@ import { RegisterPage } from './pages/RegisterPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { HistoryPage } from './pages/HistoryPage';
 import { FavoritesPage } from './pages/FavoritesPage';
+import { NotFoundPage } from './pages/NotFoundPage';
+import { ReportProblemPage } from './pages/ReportProblemPage';
 import { PrivateRoute } from './components/PrivateRoute';
 import { GuestRoute } from './components/GuestRoute';
-import { RouteHistoryLogger } from './components/RouteHistoryLogger';
 import { useAuth } from './hooks/useAuth';
 
 type NavIconKind =
@@ -296,15 +297,10 @@ function MainLayout() {
           ) : null}
         </nav>
         <div className="sidebar-footer">
-          <div className="sidebar-footer-line">
-            <span className="sidebar-footer-dot" />
-            <span>All processing runs on-device</span>
-          </div>
           <div className="sidebar-footer-models">Tesseract · TF.js · COCO-SSD</div>
         </div>
       </aside>
       <main className="main">
-        <RouteHistoryLogger />
         <AppHeaderBar />
         <section className="content">
           <Outlet />
@@ -369,6 +365,8 @@ export function App() {
             </PrivateRoute>
           }
         />
+        <Route path="/report" element={<ReportProblemPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );

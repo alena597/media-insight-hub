@@ -1,7 +1,14 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import * as mobilenet from '@tensorflow-models/mobilenet';
 import '@tensorflow/tfjs';
 import { gsap } from 'gsap';
+import { useAuth } from '../hooks/useAuth';
+import { blobUrlToDataUrl, thumbnailFromDataUrl, thumbnailFromImageUrl } from '../lib/imageData';
+import { consumeResumeForPath } from '../lib/mihResumeBridge';
+import { saveLastWorkbenchResume } from '../lib/lastWorkbenchSession';
+import type { MihResumeGallery } from '../lib/mihResume';
+import { addHistoryEntry } from '../lib/userDataApi';
 import '../theme/sg.css';
 
 type CategoryKey =
@@ -186,6 +193,11 @@ function getConfidencePct(item: GalleryItem): number | null {
  * @returns {JSX.Element} Елемент сторінки галереї
  */
 export function SmartGalleryPage() {
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const resumeOnce = useRef(false);
+
   const [model, setModel] = useState<mobilenet.MobileNet | null>(null);
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
@@ -195,6 +207,29 @@ export function SmartGalleryPage() {
   const [analysisStarted, setAnalysisStarted] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (resumeOnce.current) return;
+    const st = location.state as { mihResume?: MihResumeGallery } | undefined;
+    let r = st?.mihResume;
+    if (!r || r.module !== 'gallery') {
+      const bridged = consumeResumeForPath('/gallery');
+      if (bridged && typeof bridged === 'object' && (bridged as MihResumeGallery).module === 'gallery') {
+        r = bridged as MihResumeGallery;
+      }
+    }
+    if (!r || r.module !== 'gallery') return;
+    resumeOnce.current = true;
+    navigate('/gallery', { replace: true, state: {} });
+    const restored: GalleryItem[] = r.items.map((it) => ({
+      id: it.id,
+      fileName: it.fileName,
+      url: it.imageDataUrl,
+      category: it.category as CategoryKey,
+      predictions: it.predictions
+    }));
+    setItems(restored);
+  }, [location.state, navigate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -323,6 +358,44 @@ export function SmartGalleryPage() {
       gsap.from(cards, { opacity: 0, y: 20, duration: 0.4, stagger: 0.02, ease: 'power2.out' });
     });
     setIsClassifying(false);
+
+    if (user && updated.length > 0) {
+      void (async () => {
+        try {
+          const thumb = await thumbnailFromImageUrl(updated[0].url, 320);
+          const itemsSmall: MihResumeGallery['items'] = [];
+          for (const it of updated.slice(0, 6)) {
+            try {
+              const raw = await blobUrlToDataUrl(it.url);
+              const compressed = await thumbnailFromDataUrl(raw, 400);
+              itemsSmall.push({
+                id: it.id,
+                fileName: it.fileName,
+                imageDataUrl: compressed,
+                category: it.category,
+                predictions: it.predictions
+              });
+            } catch {
+              /* skip */
+            }
+          }
+          const payload: MihResumeGallery = { v: 1, module: 'gallery', items: itemsSmall };
+          const s = JSON.stringify(payload);
+          if (s.length < 1_450_000) {
+            saveLastWorkbenchResume('/gallery', s);
+            await addHistoryEntry({
+              kind: 'analysis',
+              label: `Галерея · ${updated.length} зображ.`,
+              path: '/gallery',
+              previewImage: thumb ?? undefined,
+              resumePayload: s
+            });
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
+    }
   };
 
   const selected = items.find((i) => i.id === activeItemId) ?? null;

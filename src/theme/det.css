@@ -141,7 +141,7 @@
   height: 100%;
   border-radius: 999px;
 }
-/* Object Detection: stage expands until results panel is shown */
+
 .det-stage {
   transition: max-height 0.42s ease;
 }
@@ -188,7 +188,7 @@
   from { transform: translateX(0); }
   to { transform: translateX(260%); }
 }
-/* Hide detected-objects panel until Run/Start detection */
+
 .det-no-results > .panel:nth-child(2) {
   opacity: 0;
   max-height: 0;

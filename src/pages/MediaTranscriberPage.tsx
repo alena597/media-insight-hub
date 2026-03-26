@@ -1,4 +1,10 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
+import { saveLastWorkbenchResume } from "../lib/lastWorkbenchSession";
+import { consumeResumeForPath } from "../lib/mihResumeBridge";
+import type { MihResumeTranscriber } from "../lib/mihResume";
+import { addHistoryEntry } from "../lib/userDataApi";
 import "../theme/transcriber.css";
 
 type Mode = "mic" | "text";
@@ -349,6 +355,13 @@ function sentimentLabel(s: Sentiment) {
  * @returns {JSX.Element} Сторінка транскрибера
  */
 export function MediaTranscriberPage() {
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const textRef = useRef("");
+  const historyHashRef = useRef("");
+  const resumeOnce = useRef(false);
+
   const [mode, setMode] = useState<Mode>("text");
   const [lang, setLang] = useState<"uk-UA" | "en-US">("uk-UA");
   const [isListening, setIsListening] = useState(false);
@@ -360,6 +373,27 @@ export function MediaTranscriberPage() {
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const startRef = useRef<number>(0);
+
+  useEffect(() => {
+    textRef.current = text;
+  }, [text]);
+
+  useEffect(() => {
+    if (resumeOnce.current) return;
+    const st = location.state as { mihResume?: MihResumeTranscriber } | undefined;
+    let r = st?.mihResume;
+    if (!r || r.module !== "transcriber") {
+      const bridged = consumeResumeForPath("/transcriber");
+      if (bridged && typeof bridged === "object" && (bridged as MihResumeTranscriber).module === "transcriber") {
+        r = bridged as MihResumeTranscriber;
+      }
+    }
+    if (!r || r.module !== "transcriber") return;
+    resumeOnce.current = true;
+    navigate("/transcriber", { replace: true, state: {} });
+    setText(r.text);
+    setMode("text");
+  }, [location.state, navigate]);
 
   const isSpeechSupported = useMemo(() => {
     const w = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
@@ -421,6 +455,23 @@ export function MediaTranscriberPage() {
     if (rec) rec.stop();
     setIsListening(false);
     setStatus("Stopped");
+    window.setTimeout(() => {
+      const t = textRef.current.trim();
+      if (!user || t.length < 10) return;
+      const hash = `${t.length}:${t.slice(0, 200)}`;
+      if (historyHashRef.current === hash) return;
+      historyHashRef.current = hash;
+      const payload: MihResumeTranscriber = { v: 1, module: "transcriber", text: t };
+      const s = JSON.stringify(payload);
+      if (s.length > 1_450_000) return;
+      saveLastWorkbenchResume("/transcriber", s);
+      void addHistoryEntry({
+        kind: "analysis",
+        label: `Транскрипт · ${t.slice(0, 72)}${t.length > 72 ? "…" : ""}`,
+        path: "/transcriber",
+        resumePayload: s
+      });
+    }, 250);
   };
 
   const start = () => {

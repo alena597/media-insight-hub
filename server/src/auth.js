@@ -1,10 +1,13 @@
+import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
+import { logger } from './logger.js';
+import { userMessageForError } from './messages/userErrorsUk.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET || JWT_SECRET.length < 16) {
-  console.warn(
-    '[server] JWT_SECRET не задано або занадто короткий. Встановіть у .env (мінімум 16 символів).'
-  );
+  logger.warn('jwt_secret_weak', {
+    message: 'JWT_SECRET не задано або занадто короткий. Встановіть у .env (мінімум 16 символів).'
+  });
 }
 
 /**
@@ -32,17 +35,28 @@ export function verifyToken(token) {
 }
 
 /**
- * Express middleware: встановлює req.userId з Bearer JWT.
+ * @param {import('express').Request} req
+ * @param {string} code
  */
+function authError(res, req, code) {
+  const errorId = randomUUID();
+  return res.status(401).json({
+    error: userMessageForError(code),
+    code,
+    requestId: req.requestId,
+    errorId
+  });
+}
+
 export function authMiddleware(req, res, next) {
   const h = req.headers.authorization;
   if (!h || !h.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Потрібна авторизація', code: 'UNAUTHORIZED' });
+    return authError(res, req, 'UNAUTHORIZED');
   }
   const token = h.slice(7);
   const decoded = verifyToken(token);
   if (!decoded || typeof decoded.sub !== 'string') {
-    return res.status(401).json({ error: 'Недійсний токен', code: 'INVALID_TOKEN' });
+    return authError(res, req, 'INVALID_TOKEN');
   }
   req.userId = decoded.sub;
   next();

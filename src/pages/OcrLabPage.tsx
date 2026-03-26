@@ -1,6 +1,14 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Tesseract from 'tesseract.js';
 import { gsap } from 'gsap';
+import { useAuth } from '../hooks/useAuth';
+import { FavoriteResultStar } from '../components/FavoriteResultStar';
+import { dataUrlFromImageElement, thumbnailFromDataUrl, thumbnailFromImageUrl } from '../lib/imageData';
+import { consumeResumeForPath } from '../lib/mihResumeBridge';
+import { saveLastWorkbenchResume } from '../lib/lastWorkbenchSession';
+import type { MihResumeOcr } from '../lib/mihResume';
+import { addHistoryEntry } from '../lib/userDataApi';
 
 type OcrBlock = {
   text: string;
@@ -31,6 +39,11 @@ type OcrLang = 'eng' | 'ukr' | 'eng+ukr';
  * @returns {JSX.Element} Сторінка OCR лабораторії
  */
 export function OcrLabPage() {
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const resumeOnce = useRef(false);
+
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<OcrBlock[]>([]);
   const [text, setText] = useState('');
@@ -43,11 +56,63 @@ export function OcrLabPage() {
   const [isCopied, setIsCopied] = useState(false);
   const [logLines, setLogLines] = useState<string[]>([]);
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
+  const [ocrResultSnapshot, setOcrResultSnapshot] = useState<{
+    previewImage: string;
+    resumePayload: string;
+  } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageContainerRef = useRef<HTMLDivElement | null>(null);
   const laserRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    if (resumeOnce.current) return;
+    const st = location.state as { mihResume?: MihResumeOcr } | undefined;
+    let r = st?.mihResume;
+    if (!r || r.module !== 'ocr') {
+      const bridged = consumeResumeForPath('/ocr');
+      if (bridged && typeof bridged === 'object' && (bridged as MihResumeOcr).module === 'ocr') {
+        r = bridged as MihResumeOcr;
+      }
+    }
+    if (!r || r.module !== 'ocr') return;
+    resumeOnce.current = true;
+    navigate('/ocr', { replace: true, state: {} });
+    setLang((r.lang === 'eng' || r.lang === 'ukr' || r.lang === 'eng+ukr' ? r.lang : 'eng+ukr') as OcrLang);
+    setImageUrl(r.imageDataUrl);
+    setBlocks(r.blocks);
+    setText(r.text);
+    setImageSize(r.imageSize);
+    setShowResults(true);
+    setWordsCount(
+      r.text
+        .split(/\s+/)
+        .map((w) => w.trim())
+        .filter(Boolean).length
+    );
+    if (r.blocks.length > 0) {
+      const avg = r.blocks.reduce((sum, b) => sum + (b.confidence || 0), 0) / r.blocks.length;
+      setAvgConfidence(avg);
+    }
+    void (async () => {
+      try {
+        const thumb = await thumbnailFromDataUrl(r.imageDataUrl, 320);
+        const payload: MihResumeOcr = {
+          v: 1,
+          module: 'ocr',
+          lang: r.lang,
+          imageDataUrl: r.imageDataUrl,
+          text: r.text,
+          blocks: r.blocks,
+          imageSize: r.imageSize
+        };
+        setOcrResultSnapshot({ previewImage: thumb, resumePayload: JSON.stringify(payload) });
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [location.state, navigate]);
 
   const pushLog = (line: string) => {
     setLogLines((prev) => [...prev, line]);
@@ -58,6 +123,7 @@ export function OcrLabPage() {
     if (!file) return;
     const url = URL.createObjectURL(file);
     setImageUrl(url);
+    setOcrResultSnapshot(null);
     setShowResults(false);
     setBlocks([]);
     setText('');
@@ -67,6 +133,36 @@ export function OcrLabPage() {
     setLogLines([]);
     setImageSize(null);
     pushLog('[00:00.000] Image loaded, waiting for OCR...');
+    if (user) {
+      void (async () => {
+        try {
+          const thumb = await thumbnailFromImageUrl(url, 320);
+          if (thumb) {
+            const langCode: string = lang === 'eng+ukr' ? 'eng+ukr' : lang;
+            const minimal: MihResumeOcr = {
+              v: 1,
+              module: 'ocr',
+              lang: langCode,
+              imageDataUrl: thumb,
+              text: '',
+              blocks: [],
+              imageSize: { width: 1, height: 1 }
+            };
+            const minimalJson = JSON.stringify(minimal);
+            saveLastWorkbenchResume('/ocr', minimalJson);
+            await addHistoryEntry({
+              kind: 'analysis',
+              label: 'OCR · зображення',
+              path: '/ocr',
+              previewImage: thumb,
+              resumePayload: minimalJson
+            });
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
+    }
   };
 
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -88,6 +184,7 @@ export function OcrLabPage() {
     setWordsCount(0);
     setAvgConfidence(null);
     setLogLines([]);
+    setOcrResultSnapshot(null);
   };
 
   const runLaserAnimation = () => {
@@ -202,6 +299,44 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
           stagger: 0.02
         });
       });
+
+      const sizeForPayload =
+        dataWithSize.imageSize?.width && dataWithSize.imageSize?.height
+          ? { width: dataWithSize.imageSize.width, height: dataWithSize.imageSize.height }
+          : el && el.naturalWidth
+            ? { width: el.naturalWidth, height: el.naturalHeight }
+            : { width: 1, height: 1 };
+
+      void (async () => {
+        if (!user || !imgRef.current) return;
+        try {
+          const full = await dataUrlFromImageElement(imgRef.current);
+          const thumb = await thumbnailFromDataUrl(full, 320);
+          const payload: MihResumeOcr = {
+            v: 1,
+            module: 'ocr',
+            lang: langCode,
+            imageDataUrl: full,
+            text: data.text,
+            blocks: blocksData,
+            imageSize: sizeForPayload
+          };
+          const s = JSON.stringify(payload);
+          if (s.length < 1_450_000) {
+            setOcrResultSnapshot({ previewImage: thumb, resumePayload: s });
+            saveLastWorkbenchResume('/ocr', s);
+            await addHistoryEntry({
+              kind: 'analysis',
+              label: `OCR · ${words.length} слів`,
+              path: '/ocr',
+              previewImage: thumb,
+              resumePayload: s
+            });
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
     } catch (e) {
       console.error(e);
       setStatus('OCR error');
@@ -209,7 +344,7 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
     } finally {
       setIsRunning(false);
     }
-  }, [imageUrl, isRunning, lang]);
+  }, [imageUrl, isRunning, lang, user]);
 
   const handleCopy = async () => {
     if (!text) return;
@@ -228,7 +363,6 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
         <div className="ocr-header-left">
           <div>
             <div className="ocr-header-title">OCR</div>
-            <div className="ocr-header-subtitle">Text extraction · Tesseract.js</div>
           </div>
         </div>
         <div className="ocr-header-right">
@@ -274,6 +408,16 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
             onDragOver={onDragOver}
             onClick={() => fileInputRef.current?.click()}
           >
+            {user && ocrResultSnapshot && text ? (
+              <div className="mih-fav-star-host" onClick={(e) => e.stopPropagation()}>
+                <FavoriteResultStar
+                  path="/ocr"
+                  title={`OCR · ${text.slice(0, 48)}${text.length > 48 ? '…' : ''}`}
+                  previewImage={ocrResultSnapshot.previewImage}
+                  resumePayload={ocrResultSnapshot.resumePayload}
+                />
+              </div>
+            ) : null}
             <input
               ref={fileInputRef}
               type="file"
@@ -357,9 +501,6 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
                   {l}
                 </div>
               ))}
-              {logLines.length === 0 ? (
-                <div className="ai-log-line">Operation log will appear after you run OCR.</div>
-              ) : null}
             </div>
           ) : null}
 

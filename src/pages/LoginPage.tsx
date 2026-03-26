@@ -2,7 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ApiError } from '../lib/api';
-import { mapAuthError } from '../lib/authErrors';
+import { messageForAuthFormError } from '../lib/authErrors';
 
 /**
  * Сторінка входу email/пароль через API.
@@ -33,7 +33,7 @@ export function LoginPage() {
       navigate(from, { replace: true });
     } catch (err: unknown) {
       if (err instanceof ApiError) {
-        setError(mapAuthError(err.code));
+        setError(messageForAuthFormError(err));
       } else {
         setError('Не вдалося з’єднатися з сервером.');
       }

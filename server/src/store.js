@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { logger } from './logger.js';
+import { AppHttpError } from './middleware/errorHandler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,8 +26,18 @@ function readFile() {
 
 function persist() {
   if (!cache) return;
-  fs.mkdirSync(path.dirname(dataPath), { recursive: true });
-  fs.writeFileSync(dataPath, JSON.stringify(cache, null, 2), 'utf8');
+  try {
+    fs.mkdirSync(path.dirname(dataPath), { recursive: true });
+    fs.writeFileSync(dataPath, JSON.stringify(cache, null, 2), 'utf8');
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    logger.error('store_persist_failed', {
+      message: err.message,
+      stack: err.stack,
+      dataPath
+    });
+    throw new AppHttpError(500, 'STORE_WRITE_FAILED', err.message, { dataPath });
+  }
 }
 
 export function getStore() {

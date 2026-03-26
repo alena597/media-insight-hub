@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { addFavorite, addHistoryEntry } from '../lib/userDataApi';
+import { gradientDataUrlForModulePath } from '../lib/moduleCardPreview';
+import { addFavorite, fetchFavorites, removeFavorite, type FavoriteItem } from '../lib/userDataApi';
 
 const MODULE_CARDS = [
   {
@@ -39,21 +40,14 @@ const MODULE_CARDS = [
 ];
 
 /**
- * Головна сторінка застосунку — дашборд з оглядом модулів.
+ * Головна сторінка — дашборд з картками модулів.
  *
- * @description
- * Відображає статистику використання (кількість аналізів з localStorage),
- * список доступних AI-модулів у вигляді карток з навігацією.
- * Лічильник аналізів зберігається у localStorage під ключем
- * `mih_analyses_count` і оновлюється кожним модулем після обробки.
- *
- * @returns {JSX.Element} Сторінка дашборду
+ * @returns Картки модулів та метрики.
  */
 export function DashboardPage() {
   const [analysesCount, setAnalysesCount] = useState(0);
-  const [filter, setFilter] = useState('');
-  const { user, authReady } = useAuth();
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { user } = useAuth();
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
 
   useEffect(() => {
     try {
@@ -66,41 +60,53 @@ export function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (!user || !authReady) return;
-    const q = filter.trim();
-    if (!q) return;
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => {
-      void addHistoryEntry({
-        kind: 'search',
-        label: `Пошук модулів: ${q}`,
-        path: '/dashboard'
-      }).catch(() => {});
-    }, 900);
-    return () => {
-      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    };
-  }, [filter, user, authReady]);
-
-  const filteredCards = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return MODULE_CARDS;
-    return MODULE_CARDS.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        c.subtitle.toLowerCase().includes(q) ||
-        c.tag.toLowerCase().includes(q)
-    );
-  }, [filter]);
-
-  const addModuleToFavorites = async (card: (typeof MODULE_CARDS)[number]) => {
-    if (!user) return;
-    try {
-      await addFavorite({ title: card.title, path: card.to });
-    } catch {
-      /* ignore */
+    if (!user) {
+      setFavorites([]);
+      return;
     }
-  };
+    let cancelled = false;
+    void fetchFavorites()
+      .then((list) => {
+        if (!cancelled) setFavorites(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const moduleFavByPath = useMemo(() => {
+    const m = new Map<string, FavoriteItem>();
+    for (const f of favorites) {
+      if (f.kind === 'result') continue;
+      if (!m.has(f.path)) m.set(f.path, f);
+    }
+    return m;
+  }, [favorites]);
+
+  const toggleModuleFavorite = useCallback(
+    async (card: (typeof MODULE_CARDS)[number]) => {
+      if (!user) return;
+      const existing = moduleFavByPath.get(card.to);
+      try {
+        if (existing) {
+          await removeFavorite(existing.id);
+        } else {
+          await addFavorite({
+            title: card.title,
+            path: card.to,
+            kind: 'module',
+            previewImage: gradientDataUrlForModulePath(card.to)
+          });
+        }
+        const list = await fetchFavorites();
+        setFavorites(list);
+      } catch {
+        /* ignore */
+      }
+    },
+    [user, moduleFavByPath]
+  );
 
   return (
     <div>
@@ -108,10 +114,7 @@ export function DashboardPage() {
         <h2>
           AI <span className="accent-gradient">Transparency</span> Lab
         </h2>
-        <p>
-          Watch every step of AI analysis unfold in real time. Upload media, observe the models
-          think, and explore the results with interactive visualizations.
-        </p>
+        <p className="dash-header-lead">Модулі аналізу медіа в браузері.</p>
       </div>
 
       <div className="dash-metrics-row">
@@ -129,23 +132,8 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="dash-search-wrap">
-        <label className="dash-search-label" htmlFor="dash-module-search">
-          Пошук модулів
-        </label>
-        <input
-          id="dash-module-search"
-          className="dash-search-input"
-          type="search"
-          placeholder="Назва, тег або опис…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          autoComplete="off"
-        />
-      </div>
-
       <div className="dash-grid">
-        {filteredCards.map((card) => (
+        {MODULE_CARDS.map((card) => (
           <DashboardCard
             key={card.to}
             to={card.to}
@@ -155,18 +143,16 @@ export function DashboardPage() {
             tag={card.tag}
             accentClass={card.accentClass}
             showFavorite={Boolean(user)}
-            onFavorite={() => void addModuleToFavorites(card)}
+            isFavorite={Boolean(moduleFavByPath.get(card.to))}
+            onFavoriteToggle={() => void toggleModuleFavorite(card)}
           />
         ))}
       </div>
-      {filteredCards.length === 0 ? (
-        <p className="dash-empty-filter">Нічого не знайдено. Спробуйте інший запит.</p>
-      ) : null}
     </div>
   );
 }
 
-
+/** Картка модуля на дашборді. */
 type DashboardCardProps = {
   to: string;
   icon: 'document' | 'gallery' | 'target' | 'mic';
@@ -175,56 +161,49 @@ type DashboardCardProps = {
   tag: string;
   accentClass: string;
   showFavorite?: boolean;
-  onFavorite?: () => void;
+  isFavorite?: boolean;
+  onFavoriteToggle?: () => void;
 };
 
 /**
- * Картка модуля на дашборді з навігацією.
+ * Картка з навігацією та зіркою обраного.
  *
- * @description
- * Клікабельна картка яка веде до відповідного AI-модуля.
- * Відображає іконку, назву, короткий опис та технологічний тег.
- *
- * @param {DashboardCardProps} props - Пропси картки
- * @param {string} props.to - Шлях маршруту
- * @param {string} props.icon - Тип іконки
- * @param {string} props.title - Назва модуля
- * @param {string} props.subtitle - Короткий опис
- * @param {string} props.tag - Технологічний тег
- * @param {string} props.accentClass - CSS клас акцентного кольору
- * @returns {JSX.Element} Картка модуля
+ * @param props - Пропси картки модуля.
+ * @returns Картка-посилання.
  */
-function DashboardCard({
-  to,
-  icon,
-  title,
-  subtitle,
-  tag,
-  accentClass,
-  showFavorite,
-  onFavorite
-}: DashboardCardProps) {
+function DashboardCard(props: DashboardCardProps) {
+  const {
+    to,
+    icon,
+    title,
+    subtitle,
+    tag,
+    accentClass,
+    showFavorite,
+    isFavorite,
+    onFavoriteToggle
+  } = props;
   return (
     <NavLink to={to} className={`dash-card ${accentClass}`}>
+      {showFavorite && onFavoriteToggle ? (
+        <button
+          type="button"
+          className={`dash-card-fav ${isFavorite ? 'dash-card-fav--filled' : 'dash-card-fav--outline'}`}
+          aria-label={isFavorite ? 'Прибрати з обраного' : 'Додати в обране'}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onFavoriteToggle();
+          }}
+        >
+          <StarIcon filled={Boolean(isFavorite)} />
+        </button>
+      ) : null}
       <div className="dash-card-body">
         <div className="dash-card-head">
           <div className="dash-card-icon">
             <CardIcon kind={icon} />
           </div>
-          {showFavorite && onFavorite ? (
-            <button
-              type="button"
-              className="dash-card-fav"
-              aria-label="Додати в обране"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onFavorite();
-              }}
-            >
-              ★
-            </button>
-          ) : null}
         </div>
         <div className="dash-card-title-row">
           <h3>{title}</h3>
@@ -237,20 +216,44 @@ function DashboardCard({
   );
 }
 
+/**
+ * Іконка зірки (контур / заливка).
+ *
+ * @param props - Прапор заливки.
+ * @param props.filled - Чи зафарбована зірка.
+ * @returns SVG.
+ */
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      {filled ? (
+        <path
+          d="M12 3.2l2.4 5.5 6 .5-4.6 4 1.4 5.8L12 16.9 6.8 19l1.4-5.8-4.6-4 6-.5L12 3.2z"
+          fill="currentColor"
+        />
+      ) : (
+        <path
+          d="M12 3.2l2.4 5.5 6 .5-4.6 4 1.4 5.8L12 16.9 6.8 19l1.4-5.8-4.6-4 6-.5L12 3.2z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.35"
+          strokeLinejoin="round"
+        />
+      )}
+    </svg>
+  );
+}
+
 type CardIconProps = {
   kind: 'document' | 'gallery' | 'target' | 'mic';
 };
 
 /**
- * SVG іконка для картки модуля на дашборді.
+ * Піктограма модуля.
  *
- * @param {CardIconProps} props - Пропси компонента
- * @param {string} props.kind - Тип іконки
- * @returns {JSX.Element} SVG іконка
- *
- * @example
- * <CardIcon kind="document" />
- * <CardIcon kind="gallery" />
+ * @param props - Тип іконки.
+ * @param props.kind - Ключ іконки.
+ * @returns SVG.
  */
 function CardIcon({ kind }: CardIconProps) {
   if (kind === 'document') {
@@ -313,14 +316,7 @@ function CardIcon({ kind }: CardIconProps) {
   if (kind === 'target') {
     return (
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <circle
-          cx="12"
-          cy="12"
-          r="5.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
+        <circle cx="12" cy="12" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
         <circle cx="12" cy="12" r="2" fill="currentColor" />
         <path
           d="M12 4V2.5M20 12h1.5M12 20v1.5M4 12H2.5"
@@ -343,14 +339,7 @@ function CardIcon({ kind }: CardIconProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path
-        d="M12 3.5v10"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
+      <path d="M12 3.5v10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
-
