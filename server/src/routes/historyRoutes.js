@@ -7,19 +7,44 @@ const router = Router();
 
 router.use(authMiddleware);
 
+const HISTORY_LIMIT = 80;
+const MAX_PREVIEW_LEN = 1_200_000;
+const MAX_RESUME_LEN = 1_500_000;
+
+/**
+ * @param {{ created_at: string; created_at_ms?: number }} row
+ * @returns {number}
+ */
+function createdAtMs(row) {
+  if (typeof row.created_at_ms === 'number' && Number.isFinite(row.created_at_ms)) {
+    return row.created_at_ms;
+  }
+  const ms = Date.parse(row.created_at);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/**
+ * @param {Array<{ user_id: string; created_at: string; created_at_ms?: number }>} rows
+ * @param {string} userId
+ * @param {number} limit
+ */
+function newestByUser(rows, userId, limit) {
+  return rows
+    .filter((row) => row.user_id === userId)
+    .sort((a, b) => createdAtMs(b) - createdAtMs(a))
+    .slice(0, limit);
+}
+
 router.get('/', (req, res) => {
   const store = getStore();
-  const rows = store.history
-    .filter((h) => h.user_id === req.userId)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 80);
+  const rows = newestByUser(store.history, req.userId, HISTORY_LIMIT);
 
   const items = rows.map((r) => ({
     id: r.id,
     kind: r.kind,
     label: r.label,
     path: r.path || undefined,
-    createdAtMs: new Date(r.created_at).getTime(),
+    createdAtMs: createdAtMs(r),
     previewImage: r.preview_image || undefined,
     resumePayload: r.resume_payload || undefined
   }));
@@ -41,9 +66,6 @@ router.delete('/:id', (req, res) => {
   });
   res.json({ ok: true });
 });
-
-const MAX_PREVIEW_LEN = 1_200_000;
-const MAX_RESUME_LEN = 1_500_000;
 
 router.post('/', (req, res) => {
   let kind = String(req.body?.kind || 'page_view');
@@ -72,6 +94,7 @@ router.post('/', (req, res) => {
 
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
+  const createdAtMsVal = Date.now();
 
   updateStore((s) => {
     s.history.push({
@@ -82,7 +105,8 @@ router.post('/', (req, res) => {
       path: pathVal || null,
       preview_image: previewImage,
       resume_payload: resumePayload,
-      created_at: createdAt
+      created_at: createdAt,
+      created_at_ms: createdAtMsVal
     });
   });
 
