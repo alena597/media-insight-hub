@@ -6,6 +6,7 @@ import authRoutes from './routes/authRoutes.js';
 import historyRoutes from './routes/historyRoutes.js';
 import favoritesRoutes from './routes/favoritesRoutes.js';
 import clientLogRoutes from './routes/clientLogRoutes.js';
+import analyticsRoutes from './routes/analyticsRoutes.js';
 import { updateStore } from './store.js';
 import { logger } from './logger.js';
 import { requestContextMiddleware } from './middleware/requestContext.js';
@@ -19,7 +20,6 @@ app.use(cors({ origin, credentials: true }));
 
 app.use(requestContextMiddleware);
 
-/** За замовчуванням ~100kb — обрізає data URL прев’ю/resume; потрібно для збереження зображень. */
 app.use(express.json({ limit: '15mb' }));
 
 app.get('/api/health', (_req, res) => {
@@ -27,6 +27,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/client-log', clientLogRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.use('/api/auth', authRoutes);
 

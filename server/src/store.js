@@ -13,7 +13,9 @@ const prettyJson = process.env.STORE_PRETTY_JSON === '1';
  * @typedef {{ id: string; email: string; password_hash: string; display_name: string | null; created_at: string }} UserRow
  * @typedef {{ id: string; user_id: string; kind: string; label: string; path: string | null; created_at: string; created_at_ms?: number; preview_image?: string | null; resume_payload?: string | null }} HistoryRow
  * @typedef {{ id: string; user_id: string; title: string; path: string; kind?: string; created_at: string; created_at_ms?: number; preview_image?: string | null; resume_payload?: string | null }} FavoriteRow
- * @typedef {{ users: UserRow[]; history: HistoryRow[]; favorites: FavoriteRow[] }} StoreShape
+ * @typedef {{ ts: string; classCounts: Record<string, number>; totalDetections: number; source: string }} DetectionAnalyticsEvent
+ * @typedef {{ events: DetectionAnalyticsEvent[] }} DetectionAnalytics
+ * @typedef {{ users: UserRow[]; history: HistoryRow[]; favorites: FavoriteRow[]; detection_analytics?: DetectionAnalytics }} StoreShape
  */
 
 /** @type {StoreShape | null} */
@@ -26,9 +28,11 @@ function readFile() {
     if (!parsed.users) parsed.users = [];
     if (!parsed.history) parsed.history = [];
     if (!parsed.favorites) parsed.favorites = [];
+    if (!parsed.detection_analytics) parsed.detection_analytics = { events: [] };
+    if (!parsed.detection_analytics.events) parsed.detection_analytics.events = [];
     return parsed;
   } catch {
-    return { users: [], history: [], favorites: [] };
+    return { users: [], history: [], favorites: [], detection_analytics: { events: [] } };
   }
 }
 

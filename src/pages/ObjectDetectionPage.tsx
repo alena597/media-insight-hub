@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
 import '@tensorflow/tfjs';
+import { gsap } from 'gsap';
 import { useAuth } from '../hooks/useAuth';
 import { dataUrlFromImageElement, thumbnailFromDataUrl } from '../lib/imageData';
 import { consumeResumeForPath } from '../lib/mihResumeBridge';
@@ -9,6 +10,7 @@ import type { MihResumeDetection } from '../lib/mihResume';
 import { detectionsFromResume } from '../lib/mihResume';
 import { saveLastWorkbenchResume } from '../lib/lastWorkbenchSession';
 import { addHistoryEntry } from '../lib/userDataApi';
+import { postDetectionAnalytics } from '../lib/detectionAnalyticsApi';
 import { FavoriteResultStar } from '../components/FavoriteResultStar';
 import '../theme/det.css';
 
@@ -69,6 +71,21 @@ function fmtPct(score: number | undefined) {
 }
 
 /**
+ * Підрахунок кількості об'єктів по класах.
+ *
+ * @param dets - Детекції COCO-SSD.
+ * @returns Об'єкт «клас → кількість».
+ */
+function countsByClass(dets: Det[]): Record<string, number> {
+  const m: Record<string, number> = {};
+  for (const d of dets) {
+    const c = d.class ?? 'object';
+    m[c] = (m[c] || 0) + 1;
+  }
+  return m;
+}
+
+/**
  * Сторінка детекції об'єктів за допомогою моделі COCO-SSD.
  *
  * @description
@@ -103,8 +120,17 @@ export function ObjectDetectionPage() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [detections, setDetections] = useState<Det[]>([]);
 
-  const showResults = isRunning || detections.length > 0;
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const [presentationMode, setPresentationMode] = useState(false);
+  const [imageRevealKey, setImageRevealKey] = useState(0);
+  const [batchUrls, setBatchUrls] = useState<string[]>([]);
+  const [batchIndex, setBatchIndex] = useState(0);
+  const [sessionClassTotals, setSessionClassTotals] = useState<Record<string, number>>({});
+
+  const showResults =
+    isRunning ||
+    detections.length > 0 ||
+    Object.keys(sessionClassTotals).length > 0;
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -113,6 +139,11 @@ export function ObjectDetectionPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef<number>(0);
+  const opacityProxiesRef = useRef<{ o: number }[]>([]);
+  const revealTimelineRef = useRef<gsap.core.Timeline | null>(null);
+  const imageRafRef = useRef<number | null>(null);
+  const pulseRef = useRef(1);
+  const lastWebcamAnalyticsRef = useRef(0);
 
   const [detectionResultSnapshot, setDetectionResultSnapshot] = useState<{
     previewImage: string;
@@ -122,6 +153,31 @@ export function ObjectDetectionPage() {
   const sorted = useMemo(() => {
     return [...detections].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   }, [detections]);
+
+  const sortedRef = useRef<Det[]>([]);
+  sortedRef.current = sorted;
+
+  const classDistribution = useMemo(() => {
+    const entries = Object.entries(countsByClass(sorted));
+    entries.sort((a, b) => b[1] - a[1]);
+    const max = entries.length ? Math.max(...entries.map(([, n]) => n), 1) : 1;
+    return entries.map(([label, count]) => ({
+      label,
+      count,
+      pct: Math.round((count / max) * 100)
+    }));
+  }, [sorted]);
+
+  const sessionDistribution = useMemo(() => {
+    const entries = Object.entries(sessionClassTotals);
+    entries.sort((a, b) => b[1] - a[1]);
+    const max = entries.length ? Math.max(...entries.map(([, n]) => n), 1) : 1;
+    return entries.map(([label, count]) => ({
+      label,
+      count,
+      pct: Math.round((count / max) * 100)
+    }));
+  }, [sessionClassTotals]);
 
   useEffect(() => {
     if (resumeApplied.current) return;
@@ -233,11 +289,19 @@ export function ObjectDetectionPage() {
   };
 
   const clearAll = () => {
+    revealTimelineRef.current?.kill();
+    revealTimelineRef.current = null;
+    opacityProxiesRef.current = [];
+    batchUrls.forEach((u) => URL.revokeObjectURL(u));
+    setBatchUrls([]);
+    setBatchIndex(0);
+    setPresentationMode(false);
     setDetections([]);
     setActiveIdx(null);
     setImageUrl(null);
+    setSessionClassTotals({});
     setDetectionResultSnapshot(null);
-    setStatus("");
+    setStatus('');
     const c = overlayRef.current;
     if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
   };
@@ -258,24 +322,92 @@ export function ObjectDetectionPage() {
   }, []);
 
   useEffect(() => {
-    
+    revealTimelineRef.current?.kill();
+    revealTimelineRef.current = null;
+    opacityProxiesRef.current = [];
     stopWebcam();
     setDetections([]);
     setActiveIdx(null);
+    setPresentationMode(false);
     const c = overlayRef.current;
     if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
-    setStatus("");
+    setStatus('');
   }, [mode]);
 
+  useEffect(() => {
+    revealTimelineRef.current?.kill();
+    if (mode !== 'image') {
+      opacityProxiesRef.current = [];
+      return;
+    }
+    const list = sortedRef.current;
+    if (list.length === 0) {
+      opacityProxiesRef.current = [];
+      return;
+    }
+    opacityProxiesRef.current = list.map(() => ({ o: 0 }));
+    const tl = gsap.timeline();
+    list.forEach((_, i) => {
+      const proxy = opacityProxiesRef.current[i];
+      tl.to(proxy, { o: 1, duration: 0.34, ease: 'power2.out' }, i * 0.055);
+    });
+    revealTimelineRef.current = tl;
+    return () => {
+      tl.kill();
+    };
+  }, [imageRevealKey, mode]);
+
+  useEffect(() => {
+    if (!presentationMode || sorted.length === 0) return;
+    setActiveIdx(0);
+    const id = window.setInterval(() => {
+      setActiveIdx((cur) => {
+        const base = cur === null ? 0 : cur;
+        return (base + 1) % sorted.length;
+      });
+    }, 2800);
+    return () => clearInterval(id);
+  }, [presentationMode, sorted]);
+
+  useEffect(() => {
+    if (mode !== 'image' || sorted.length === 0) {
+      if (imageRafRef.current != null) {
+        cancelAnimationFrame(imageRafRef.current);
+        imageRafRef.current = null;
+      }
+      return;
+    }
+    const loop = () => {
+      pulseRef.current = 1 + 0.12 * Math.sin(performance.now() / 185);
+      const img = imgRef.current;
+      if (img) draw(sorted, img, { pulse: pulseRef.current });
+      imageRafRef.current = requestAnimationFrame(loop);
+    };
+    imageRafRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (imageRafRef.current != null) cancelAnimationFrame(imageRafRef.current);
+      imageRafRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- потрібен повторний цикл при зміні sorted/activeIdx
+  }, [mode, sorted, activeIdx]);
+
   const handleFiles = (files: FileList | null) => {
-    const file = files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setImageUrl(url);
+    const list = files ? Array.from(files) : [];
+    if (list.length === 0) return;
+    batchUrls.forEach((u) => URL.revokeObjectURL(u));
+    const urls = list.map((f) => URL.createObjectURL(f));
+    setBatchUrls(urls);
+    setBatchIndex(0);
+    setImageUrl(urls[0]);
     setDetections([]);
     setActiveIdx(null);
     setDetectionResultSnapshot(null);
-    setStatus('Image added — press “Run detection”');
+    setPresentationMode(false);
+    setStatus(
+      list.length > 1
+        ? `Пакет: ${list.length} зображень — запустіть детекцію або «Детектувати пакет»`
+        : 'Image added — press “Run detection”'
+    );
   };
 
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -308,7 +440,12 @@ export function ObjectDetectionPage() {
     return { ctx, rect };
   };
 
-  const draw = (dets: Det[], el: HTMLImageElement | HTMLVideoElement) => {
+  const draw = (
+    dets: Det[],
+    el: HTMLImageElement | HTMLVideoElement,
+    opts?: { pulse?: number }
+  ) => {
+    const pulse = opts?.pulse ?? 1;
     const s = syncOverlayToMedia(el);
     if (!s) return;
     const { ctx, rect } = s;
@@ -321,6 +458,8 @@ export function ObjectDetectionPage() {
     const scaleX = rect.width / naturalW;
     const scaleY = rect.height / naturalH;
 
+    const proxies = opacityProxiesRef.current;
+
     dets.forEach((d, idx) => {
       const [x, y, w, h] = d.bbox;
       const sx = x * scaleX;
@@ -331,20 +470,28 @@ export function ObjectDetectionPage() {
       const score = d.score ?? 0;
       const col = colorForLabel(label);
       const isActive = activeIdx === idx;
+      const op = proxies[idx]?.o ?? 1;
 
-      ctx.lineWidth = isActive ? 3 : 2;
+      ctx.save();
+      ctx.globalAlpha = op;
+      const lineBoost = isActive ? pulse : 1;
+      ctx.lineWidth = (isActive ? 3.2 : 2) * lineBoost;
       ctx.strokeStyle = col;
       ctx.strokeRect(sx, sy, sw, sh);
+      ctx.restore();
 
       const tag = `${label} · ${Math.round(score * 100)}%`;
       ctx.font = '12px system-ui, -apple-system, Segoe UI, sans-serif';
       const padX = 6;
       const tw = ctx.measureText(tag).width;
       const th = 16;
+      ctx.save();
+      ctx.globalAlpha = op;
       ctx.fillStyle = 'rgba(2, 6, 23, 0.85)';
       ctx.fillRect(sx, Math.max(0, sy - th), tw + padX * 2, th);
       ctx.fillStyle = col;
       ctx.fillText(tag, sx + padX, Math.max(12, sy - 4));
+      ctx.restore();
     });
   };
 
@@ -375,7 +522,17 @@ export function ObjectDetectionPage() {
       setDetections(sortedDets);
       setActiveIdx(sortedDets.length ? 0 : null);
       setStatus(sortedDets.length ? `Found: ${sortedDets.length}` : 'No objects found');
-      draw(sortedDets, img);
+      setSessionClassTotals((prev) => {
+        const next = { ...prev };
+        for (const d of sortedDets) {
+          const c = d.class ?? 'object';
+          next[c] = (next[c] || 0) + 1;
+        }
+        return next;
+      });
+      setImageRevealKey((k) => k + 1);
+      postDetectionAnalytics(countsByClass(sortedDets), sortedDets.length, 'det-image');
+      draw(sortedDets, img, { pulse: 1 });
       void logAnalysisHistory(sortedDets);
     } catch (e) {
       console.error(e);
@@ -425,7 +582,12 @@ export function ObjectDetectionPage() {
           const sortedDets = [...dets].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
           setDetections(sortedDets);
           setActiveIdx(sortedDets.length ? 0 : null);
-          draw(sortedDets, videoRef.current);
+          const pulseLive = 1 + 0.1 * Math.sin(t / 170);
+          draw(sortedDets, videoRef.current, { pulse: pulseLive });
+          if (t - lastWebcamAnalyticsRef.current > 6000 && sortedDets.length > 0) {
+            lastWebcamAnalyticsRef.current = t;
+            postDetectionAnalytics(countsByClass(sortedDets), sortedDets.length, 'det-webcam');
+          }
         } catch (e) {
           console.error(e);
           setStatus('Live detection error');
@@ -445,9 +607,150 @@ export function ObjectDetectionPage() {
     setActiveIdx(idx);
     const el = mode === 'image' ? imgRef.current : videoRef.current;
     if (!el) return;
-    // important: use the same ordering as drawn
-    draw(sorted, el);
+    if (mode === 'webcam') {
+      draw(sorted, el, { pulse: pulseRef.current });
+    }
   };
+
+  const exportDetectionPng = () => {
+    const img = imgRef.current;
+    if (!img || mode !== 'image' || !img.complete || sorted.length === 0) return;
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+    if (w < 2 || h < 2) return;
+    const out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    const ctx = out.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(img, 0, 0, w, h);
+    const proxies = opacityProxiesRef.current;
+    const fontPx = Math.max(14, Math.round(w / 48));
+    sorted.forEach((d, idx) => {
+      const [bx, by, bw, bh] = d.bbox;
+      const label = d.class ?? 'object';
+      const score = d.score ?? 0;
+      const col = colorForLabel(label);
+      const isActive = activeIdx === idx;
+      const op = proxies[idx]?.o ?? 1;
+      ctx.save();
+      ctx.globalAlpha = op;
+      ctx.lineWidth = isActive ? 4 : 2.2;
+      ctx.strokeStyle = col;
+      ctx.strokeRect(bx, by, bw, bh);
+      ctx.restore();
+      const tag = `${label} · ${Math.round(score * 100)}%`;
+      ctx.font = `${fontPx}px system-ui, -apple-system, Segoe UI, sans-serif`;
+      const padX = 8;
+      const tw = ctx.measureText(tag).width;
+      const th = Math.round(fontPx * 1.35);
+      ctx.save();
+      ctx.globalAlpha = op;
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.9)';
+      ctx.fillRect(bx, Math.max(0, by - th), tw + padX * 2, th);
+      ctx.fillStyle = col;
+      ctx.fillText(tag, bx + padX, Math.max(fontPx, by - 4));
+      ctx.restore();
+    });
+    out.toBlob((blob) => {
+      if (!blob) return;
+      const a = document.createElement('a');
+      const u = URL.createObjectURL(blob);
+      a.href = u;
+      a.download = `mih-detection-${Date.now()}.png`;
+      a.click();
+      URL.revokeObjectURL(u);
+    }, 'image/png');
+  };
+
+  const runBatchDetection = async () => {
+    if (batchUrls.length === 0 || mode !== 'image') return;
+    const m = await ensureModel();
+    if (!m) return;
+    setIsRunning(true);
+    const mergedBatch: Record<string, number> = {};
+    try {
+      for (let i = 0; i < batchUrls.length; i += 1) {
+        setBatchIndex(i);
+        const url = batchUrls[i];
+        setImageUrl(url);
+        const sortedDets = await new Promise<Det[]>((resolve) => {
+          const im = new Image();
+          im.onload = async () => {
+            try {
+              const d = (await m.detect(im)) as Det[];
+              const s = [...d].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+              resolve(s);
+            } catch {
+              resolve([]);
+            }
+          };
+          im.onerror = () => resolve([]);
+          im.src = url;
+        });
+        setDetections(sortedDets);
+        setActiveIdx(sortedDets.length ? 0 : null);
+        setImageRevealKey((k) => k + 1);
+        for (const d of sortedDets) {
+          const c = d.class ?? 'object';
+          mergedBatch[c] = (mergedBatch[c] || 0) + 1;
+        }
+        postDetectionAnalytics(countsByClass(sortedDets), sortedDets.length, 'det-batch-image');
+        await new Promise((r) => setTimeout(r, 320));
+      }
+      setSessionClassTotals((prev) => {
+        const next = { ...prev };
+        for (const [k, v] of Object.entries(mergedBatch)) {
+          next[k] = (next[k] || 0) + v;
+        }
+        return next;
+      });
+      setStatus(`Пакет оброблено: ${batchUrls.length} зображень`);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const goToBatchIndex = useCallback((idx: number) => {
+    if (batchUrls.length === 0) return;
+    const i = ((idx % batchUrls.length) + batchUrls.length) % batchUrls.length;
+    setBatchIndex(i);
+    setImageUrl(batchUrls[i]);
+    setDetections([]);
+    setActiveIdx(null);
+    setPresentationMode(false);
+    revealTimelineRef.current?.kill();
+    revealTimelineRef.current = null;
+    opacityProxiesRef.current = [];
+    const c = overlayRef.current;
+    if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
+  }, [batchUrls]);
+
+  const stepActiveDet = (delta: number) => {
+    if (sorted.length === 0) return;
+    setActiveIdx((cur) => {
+      const base = cur === null ? 0 : cur;
+      return (base + delta + sorted.length) % sorted.length;
+    });
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target;
+      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
+      if (mode !== 'image' || batchUrls.length < 2) return;
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        goToBatchIndex(batchIndex + 1);
+      }
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        goToBatchIndex(batchIndex - 1);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mode, batchUrls.length, batchIndex, goToBatchIndex]);
 
   const mediaEl = mode === 'image' ? imgRef.current : videoRef.current;
   useEffect(() => {
@@ -457,7 +760,8 @@ export function ObjectDetectionPage() {
       if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
       return;
     }
-    draw(sorted, mediaEl);
+    if (mode === 'image') return;
+    draw(sorted, mediaEl, { pulse: 1 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIdx, detections.length, sorted.length, mode]);
 
@@ -508,7 +812,7 @@ export function ObjectDetectionPage() {
         <div className="det-controls">
           {mode === 'image' ? (
             <>
-              <button type="button" className="secondary-button" onClick={() => fileInputRef.current?.click()}>
+              <button type="button" className="secondary-button" onClick={() => fileInputRef.current?.click()} title="Додати зображення (можна кілька)">
                 ＋
               </button>
               <button
@@ -519,6 +823,16 @@ export function ObjectDetectionPage() {
               >
                 {isRunning ? 'Detecting…' : 'Run detection'}
               </button>
+              {batchUrls.length > 1 ? (
+                <button
+                  type="button"
+                  className="primary-button det-btn--batch"
+                  onClick={runBatchDetection}
+                  disabled={isRunning || isLoadingModel}
+                >
+                  Детектувати пакет
+                </button>
+              ) : null}
             </>
           ) : (
             <>
@@ -530,16 +844,74 @@ export function ObjectDetectionPage() {
               </button>
             </>
           )}
-          <button type="button" className="secondary-button" onClick={clearAll} disabled={mode === 'image' ? !imageUrl && detections.length === 0 : detections.length === 0}>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={clearAll}
+            disabled={
+              mode === 'image'
+                ? !imageUrl && detections.length === 0 && batchUrls.length === 0 && Object.keys(sessionClassTotals).length === 0
+                : detections.length === 0
+            }
+          >
             🧹 Clear
           </button>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             style={{ display: 'none' }}
             onChange={(e) => handleFiles(e.target.files)}
           />
+        </div>
+
+        <div className="det-toolbar">
+          {mode === 'image' && batchUrls.length > 1 ? (
+            <div className="det-batch-nav">
+              <span className="det-batch-label">
+                Пакет: {batchIndex + 1} / {batchUrls.length}
+              </span>
+              <button type="button" className="secondary-button" onClick={() => goToBatchIndex(batchIndex - 1)} title="Попереднє (M)">
+                ←
+              </button>
+              <button type="button" className="secondary-button" onClick={() => goToBatchIndex(batchIndex + 1)} title="Наступне (N)">
+                →
+              </button>
+              <span className="det-hint">клавіші N / M</span>
+            </div>
+          ) : null}
+          {mode === 'image' && sorted.length > 0 ? (
+            <div className="det-toolbar-tools">
+              <label className="det-check">
+                <input
+                  type="checkbox"
+                  checked={presentationMode}
+                  onChange={(e) => setPresentationMode(e.target.checked)}
+                />
+                Презентація
+              </label>
+              {!presentationMode ? (
+                <>
+                  <button type="button" className="secondary-button" onClick={() => stepActiveDet(-1)} title="Попередній bbox">
+                    ◀
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => stepActiveDet(1)} title="Наступний bbox">
+                    ▶
+                  </button>
+                </>
+              ) : null}
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={exportDetectionPng}
+                disabled={!imageUrl}
+                title="Знімок кадру з рамками"
+              >
+                Експорт PNG
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div className="file-drop-zone det-zone" onDrop={onDrop} onDragOver={onDragOver} onClick={() => mode === 'image' && fileInputRef.current?.click()}>
@@ -572,7 +944,7 @@ export function ObjectDetectionPage() {
         </div>
       </div>
 
-      <div className="panel">
+      <div className="panel det-results-panel">
         <div className="panel-header">
           <div>
             <div className="panel-title">
@@ -584,8 +956,54 @@ export function ObjectDetectionPage() {
           </div>
         </div>
 
+        {classDistribution.length > 0 ? (
+          <div className="det-stats-block">
+            <div className="det-stats-title">Розподіл за класами (кадр)</div>
+            <div className="det-stats-bars">
+              {classDistribution.map(({ label, count, pct }) => (
+                <div key={`frame-${label}`} className="det-stat-row">
+                  <span className="det-stat-label">{label}</span>
+                  <span className="det-stat-count">{count}</span>
+                  <div className="det-bar det-bar--stat">
+                    <div
+                      className="det-bar-fill"
+                      style={{ width: `${pct}%`, background: colorForLabel(label) }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {sessionDistribution.length > 0 ? (
+          <div className="det-stats-block det-stats-block--session">
+            <div className="det-stats-title">Накопичено за сесію</div>
+            <div className="det-stats-bars">
+              {sessionDistribution.map(({ label, count, pct }) => (
+                <div key={`sess-${label}`} className="det-stat-row">
+                  <span className="det-stat-label">{label}</span>
+                  <span className="det-stat-count">{count}</span>
+                  <div className="det-bar det-bar--stat">
+                    <div
+                      className="det-bar-fill"
+                      style={{ width: `${pct}%`, background: colorForLabel(label) }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {sorted.length === 0 ? (
-          <div className="det-list-empty"></div>
+          <div className="det-list-empty">
+            {isRunning && mode === 'image'
+              ? 'Очікування детекції…'
+              : sessionDistribution.length > 0
+                ? 'Немає детекцій на поточному кадрі. Оберіть інше зображення або запустіть детекцію.'
+                : 'Результати з’являться після детекції'}
+          </div>
         ) : (
           <div className="det-list">
             {sorted.map((d, idx) => {

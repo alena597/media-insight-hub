@@ -1,4 +1,4 @@
-# Lab 8 - Profiling and Performance Optimization
+# Profiling and Performance Optimization
 
 ## Scope and goals
 

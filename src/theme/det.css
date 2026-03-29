@@ -13,8 +13,59 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   flex-wrap: wrap;
+}
+
+.det-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.det-batch-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.det-batch-label {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-right: 0.25rem;
+}
+
+.det-hint {
+  font-size: 0.72rem;
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.det-toolbar-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.det-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.det-check input {
+  accent-color: rgb(52, 211, 153);
+}
+
+.det-btn--batch {
+  border-color: rgba(34, 211, 238, 0.45) !important;
 }
 
 .det-status {
@@ -80,6 +131,57 @@
   padding: 0.85rem;
   color: var(--text-secondary);
   font-size: 0.82rem;
+  min-height: 2.75rem;
+}
+
+.det-results-panel .det-stats-block {
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid rgba(31, 41, 55, 0.95);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.det-results-panel .det-stats-block--session {
+  border-color: rgba(52, 211, 153, 0.22);
+}
+
+.det-stats-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(148, 163, 184, 0.95);
+  margin-bottom: 0.5rem;
+}
+
+.det-stats-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.det-stat-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 0.15rem 0.5rem;
+  align-items: center;
+}
+
+.det-stat-row .det-bar--stat {
+  grid-column: 1 / -1;
+  height: 6px;
+}
+
+.det-stat-label {
+  font-size: 0.78rem;
+  color: #e5e7eb;
+}
+
+.det-stat-count {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
 .det-list {
