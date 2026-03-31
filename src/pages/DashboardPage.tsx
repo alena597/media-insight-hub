@@ -38,6 +38,12 @@ const EMPTY_MODULE_COUNTS: Record<string, number> = {
   '/transcriber': 0
 };
 
+/**
+ * Формує масив даних активності за останні 7 днів на основі словника дат.
+ *
+ * @param daily - Словник {ISO-дата: кількість запитів}.
+ * @returns Масив з мітками днів тижня та відповідними лічильниками.
+ */
 function buildDailyData(daily: Record<string, number>): Array<{ label: string; count: number }> {
   const result: Array<{ label: string; count: number }> = [];
   for (let i = 6; i >= 0; i--) {
@@ -52,6 +58,10 @@ function buildDailyData(daily: Record<string, number>): Array<{ label: string; c
 
 /**
  * Донатна SVG-діаграма використання модулів.
+ *
+ * @param root0 - Пропси компонента.
+ * @param root0.counts - Словник {маршрут: кількість} для кожного модуля.
+ * @returns SVG-діаграма у вигляді кільця.
  */
 function ModuleDonutChart({ counts }: { counts: Record<string, number> }) {
   const modules = ['/ocr', '/gallery', '/detection', '/transcriber'] as const;
@@ -147,6 +157,10 @@ function ModuleDonutChart({ counts }: { counts: Record<string, number> }) {
 
 /**
  * Стовпчастий SVG-графік активності за останні 7 днів.
+ *
+ * @param root0 - Пропси компонента.
+ * @param root0.data - Масив об'єктів з мітками та лічильниками активності.
+ * @returns SVG-графік зі стовпцями для кожного дня.
  */
 function ActivityBarChart({ data }: { data: Array<{ label: string; count: number }> }) {
   const maxCount = Math.max(...data.map((d) => d.count), 1);
@@ -253,6 +267,8 @@ const MODULE_CARDS = [
 
 /**
  * Головна сторінка — дашборд з картками модулів.
+ *
+ * @returns JSX-елемент сторінки дашборду.
  */
 export function DashboardPage() {
   const { user } = useAuth();
@@ -425,6 +441,12 @@ type DashboardCardProps = {
   onFavoriteToggle?: () => void;
 };
 
+/**
+ * Картка навігації до модуля на дашборді.
+ *
+ * @param props - Пропси картки (посилання, іконка, заголовок, тощо).
+ * @returns JSX-елемент картки.
+ */
 function DashboardCard(props: DashboardCardProps) {
   const {
     to,
@@ -470,6 +492,13 @@ function DashboardCard(props: DashboardCardProps) {
   );
 }
 
+/**
+ * SVG-іконка зірочки для позначення обраного.
+ *
+ * @param props - Пропси іконки.
+ * @param props.filled - Чи відображати заповнену зірку.
+ * @returns SVG-елемент зірочки.
+ */
 function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -495,6 +524,13 @@ type CardIconProps = {
   kind: 'document' | 'gallery' | 'target' | 'mic';
 };
 
+/**
+ * SVG-іконка для картки модуля дашборду.
+ *
+ * @param props - Пропси іконки.
+ * @param props.kind - Тип іконки: 'document' | 'gallery' | 'target' | 'mic'.
+ * @returns SVG-елемент відповідної іконки.
+ */
 function CardIcon({ kind }: CardIconProps) {
   if (kind === 'document') {
     return (

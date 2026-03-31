@@ -62,6 +62,41 @@ const CATEGORY_ORDER: CategoryKey[] = [
 ];
 
 /**
+ * Розбиває рядок на окремі слова для точного порівняння (без помилкових підрядкових збігів).
+ *
+ * @param s - Вхідний рядок.
+ * @returns Масив слів.
+ */
+function words(s: string): string[] {
+  return s.split(/[\s,]+/).filter(Boolean);
+}
+
+/**
+ * Перевіряє, чи містить масив токенів хоча б одне з ключових слів.
+ *
+ * @param tokens - Масив токенів рядка.
+ * @param keywords - Ключові слова для пошуку.
+ * @returns true, якщо знайдено збіг.
+ */
+function hasWord(tokens: string[], keywords: string[]): boolean {
+  return keywords.some((k) => {
+    if (k.includes(' ')) return s_includes(tokens.join(' '), k);
+    return tokens.includes(k);
+  });
+}
+
+/**
+ * Перевіряє входження підрядка у рядок.
+ *
+ * @param str - Рядок для пошуку.
+ * @param sub - Підрядок.
+ * @returns true, якщо підрядок знайдено.
+ */
+function s_includes(str: string, sub: string): boolean {
+  return str.includes(sub);
+}
+
+/**
  * Маппує назву класу ImageNet на категорію проєкту.
  *
  * @description
@@ -71,30 +106,10 @@ const CATEGORY_ORDER: CategoryKey[] = [
  * clothing → interior → animals → furniture → nature → transport →
  * tableware → food → other.
  *
- * @param {string} classNames - Назва класу з моделі MobileNet (наприклад 'n02123045 tabby cat')
- * @returns {CategoryKey} Ключ категорії проєкту
- *
- * @example
- * mapLabelToCategory('n02123045 tabby cat') // повертає 'animals'
- * mapLabelToCategory('laptop computer')      // повертає 'tech'
- * mapLabelToCategory('unknown object')       // повертає 'other'
+ * @param topClass - Назва класу з моделі MobileNet (наприклад 'n02123045 tabby cat').
+ * @param fallbackClasses - Додаткові класи для запасної перевірки.
+ * @returns Ключ категорії проєкту.
  */
-/** Розбиває рядок на окремі слова для точного порівняння (без помилкових підрядкових збігів). */
-function words(s: string): string[] {
-  return s.split(/[\s,]+/).filter(Boolean);
-}
-
-function hasWord(tokens: string[], keywords: string[]): boolean {
-  return keywords.some((k) => {
-    if (k.includes(' ')) return s_includes(tokens.join(' '), k);
-    return tokens.includes(k);
-  });
-}
-
-function s_includes(str: string, sub: string): boolean {
-  return str.includes(sub);
-}
-
 function mapLabelToCategory(topClass: string, fallbackClasses?: string): CategoryKey {
   const normalize = (s: string) =>
     s.replace(/\bn\d+\s*/g, '').replace(/_/g, ' ').toLowerCase().trim();

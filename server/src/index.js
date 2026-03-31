@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
@@ -51,6 +53,13 @@ app.post('/api/history/clear', authMiddleware, (req, res) => {
 app.use('/api/history', historyRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/stats', statsRoutes);
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const distPath = path.join(__dirname, '../../dist');
+app.use(express.static(distPath));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
 
 app.use(notFoundHandler);
 app.use(errorHandler);

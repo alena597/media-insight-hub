@@ -125,7 +125,7 @@ export function ObjectDetectionPage() {
   const [imageRevealKey, setImageRevealKey] = useState(0);
   const [batchUrls, setBatchUrls] = useState<string[]>([]);
   const [batchIndex, setBatchIndex] = useState(0);
-  const [batchDetectionsMap, setBatchDetectionsMap] = useState<Record<number, Det[]>>({});
+  const [, setBatchDetectionsMap] = useState<Record<number, Det[]>>({});
   const [sessionClassTotals, setSessionClassTotals] = useState<Record<string, number>>({});
 
   const [videoProgress, setVideoProgress] = useState(0);

@@ -54,7 +54,7 @@ export function OcrLabPage() {
   const [wordsCount, setWordsCount] = useState(0);
   const [avgConfidence, setAvgConfidence] = useState<number | null>(null);
   const [isCopied, setIsCopied] = useState(false);
-  const [logLines, setLogLines] = useState<string[]>([]);
+  const [, setLogLines] = useState<string[]>([]);
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
   const [ocrResultSnapshot, setOcrResultSnapshot] = useState<{
     previewImage: string;
@@ -182,8 +182,10 @@ export function OcrLabPage() {
 
   /**
    * Обчислює фактичний прямокутник контенту зображення всередині box-у з object-fit: contain.
+   *
+   * @returns Об'єкт з розмірами та зміщенням контенту або null, якщо зображення не готове.
    */
-  const getImageRenderRect = (): { contentW: number; contentH: number; offsetX: number; offsetY: number } | null => {
+  const getImageRenderRect = useCallback((): { contentW: number; contentH: number; offsetX: number; offsetY: number } | null => {
     const img = imgRef.current;
     const size = imageSize;
     if (!img || !size || !img.clientWidth || !img.clientHeight) return null;
@@ -204,9 +206,9 @@ export function OcrLabPage() {
       offsetY = 0;
     }
     return { contentW, contentH, offsetX, offsetY };
-  };
+  }, [imageSize]);
 
-  const runLaserAnimation = () => {
+  const runLaserAnimation = useCallback(() => {
     if (!imageContainerRef.current || !laserRef.current) return;
     const laser = laserRef.current;
     const rect = getImageRenderRect();
@@ -224,9 +226,9 @@ export function OcrLabPage() {
         repeat: 1
       }
     );
-  };
+  }, [getImageRenderRect]);
 
-  
+
   /**
  * Запускає процес OCR розпізнавання тексту на завантаженому зображенні.
  *
@@ -382,7 +384,7 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
     } finally {
       setIsRunning(false);
     }
-  }, [imageUrl, isRunning, lang, user]);
+  }, [imageUrl, isRunning, lang, user, runLaserAnimation]);
 
   /** Завантажує результати OCR у форматі JSON. */
   const handleExportJson = () => {
