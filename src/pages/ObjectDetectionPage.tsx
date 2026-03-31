@@ -14,7 +14,7 @@ import { postDetectionAnalytics } from '../lib/detectionAnalyticsApi';
 import { FavoriteResultStar } from '../components/FavoriteResultStar';
 import '../theme/det.css';
 
-type Mode = 'image' | 'webcam';
+type Mode = 'image' | 'webcam' | 'video';
 
 type Det = cocoSsd.DetectedObject;
 
@@ -89,9 +89,10 @@ function countsByClass(dets: Det[]): Record<string, number> {
  * Сторінка детекції об'єктів за допомогою моделі COCO-SSD.
  *
  * @description
- * Підтримує два режими роботи:
+ * Підтримує три режими роботи:
  * - Image: завантаження статичного зображення та одноразова детекція
  * - Webcam: детекція в реальному часі через getUserMedia з ~5 FPS
+ * - Video: аналіз відеофайлу через посекундне семплування кадрів та детекцію кожного кадру
  *
  * Архітектурне рішення: canvas-оверлей накладається поверх
  * зображення/відео через абсолютне позиціонування. Координати
@@ -121,11 +122,15 @@ export function ObjectDetectionPage() {
   const [detections, setDetections] = useState<Det[]>([]);
 
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
-  const [presentationMode, setPresentationMode] = useState(false);
   const [imageRevealKey, setImageRevealKey] = useState(0);
   const [batchUrls, setBatchUrls] = useState<string[]>([]);
   const [batchIndex, setBatchIndex] = useState(0);
+  const [batchDetectionsMap, setBatchDetectionsMap] = useState<Record<number, Det[]>>({});
   const [sessionClassTotals, setSessionClassTotals] = useState<Record<string, number>>({});
+
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [videoFrameResults, setVideoFrameResults] = useState<Array<{ timeMs: number; count: number; classes: string[] }>>([]);
+  const [isAnalyzingVideo, setIsAnalyzingVideo] = useState(false);
 
   const showResults =
     isRunning ||
@@ -133,6 +138,7 @@ export function ObjectDetectionPage() {
     Object.keys(sessionClassTotals).length > 0;
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const videoFileInputRef = useRef<HTMLInputElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
@@ -295,13 +301,15 @@ export function ObjectDetectionPage() {
     batchUrls.forEach((u) => URL.revokeObjectURL(u));
     setBatchUrls([]);
     setBatchIndex(0);
-    setPresentationMode(false);
+    setBatchDetectionsMap({});
     setDetections([]);
     setActiveIdx(null);
     setImageUrl(null);
     setSessionClassTotals({});
     setDetectionResultSnapshot(null);
     setStatus('');
+    setVideoFrameResults([]);
+    setVideoProgress(0);
     const c = overlayRef.current;
     if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
   };
@@ -328,7 +336,6 @@ export function ObjectDetectionPage() {
     stopWebcam();
     setDetections([]);
     setActiveIdx(null);
-    setPresentationMode(false);
     const c = overlayRef.current;
     if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
     setStatus('');
@@ -358,18 +365,6 @@ export function ObjectDetectionPage() {
   }, [imageRevealKey, mode]);
 
   useEffect(() => {
-    if (!presentationMode || sorted.length === 0) return;
-    setActiveIdx(0);
-    const id = window.setInterval(() => {
-      setActiveIdx((cur) => {
-        const base = cur === null ? 0 : cur;
-        return (base + 1) % sorted.length;
-      });
-    }, 2800);
-    return () => clearInterval(id);
-  }, [presentationMode, sorted]);
-
-  useEffect(() => {
     if (mode !== 'image' || sorted.length === 0) {
       if (imageRafRef.current != null) {
         cancelAnimationFrame(imageRafRef.current);
@@ -391,6 +386,92 @@ export function ObjectDetectionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- потрібен повторний цикл при зміні sorted/activeIdx
   }, [mode, sorted, activeIdx]);
 
+  /**
+   * Аналізує відеофайл через посекундне семплування кадрів.
+   * Для кожного кадру запускає COCO-SSD детекцію та зберігає результати.
+   *
+   * @param {File} file - Відеофайл для аналізу
+   */
+  const analyzeVideoFile = async (file: File) => {
+    const m = await ensureModel();
+    if (!m) return;
+    setIsAnalyzingVideo(true);
+    setVideoProgress(0);
+    setVideoFrameResults([]);
+    setDetections([]);
+
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.src = url;
+    video.muted = true;
+    video.preload = 'auto';
+
+    await new Promise<void>((res) => {
+      video.onloadedmetadata = () => res();
+      video.onerror = () => res();
+    });
+
+    const duration = video.duration || 0;
+    const step = Math.max(1, duration / 30);
+    const times: number[] = [];
+    for (let t = 0; t < duration; t += step) times.push(t);
+
+    const frameCanvas = document.createElement('canvas');
+    const frameCtx = frameCanvas.getContext('2d');
+    const results: Array<{ timeMs: number; count: number; classes: string[] }> = [];
+
+    for (let i = 0; i < times.length; i++) {
+      const t = times[i];
+      video.currentTime = t;
+      await new Promise<void>((res) => {
+        const handler = () => { video.removeEventListener('seeked', handler); res(); };
+        video.addEventListener('seeked', handler);
+      });
+
+      if (!frameCtx) break;
+      frameCanvas.width = video.videoWidth || 640;
+      frameCanvas.height = video.videoHeight || 480;
+      frameCtx.drawImage(video, 0, 0);
+
+      try {
+        const dets = await m.detect(frameCanvas);
+        results.push({
+          timeMs: Math.round(t * 1000),
+          count: dets.length,
+          classes: [...new Set(dets.map(d => d.class))]
+        });
+        if (i === Math.floor(times.length / 2)) {
+          setDetections(dets);
+          setImageUrl(frameCanvas.toDataURL('image/jpeg', 0.7));
+        }
+      } catch {
+        results.push({ timeMs: Math.round(t * 1000), count: 0, classes: [] });
+      }
+
+      setVideoProgress(Math.round(((i + 1) / times.length) * 100));
+    }
+
+    URL.revokeObjectURL(url);
+    setVideoFrameResults(results);
+    setIsAnalyzingVideo(false);
+
+    const allDets = results.flatMap(r => r.classes);
+    const totals: Record<string, number> = {};
+    allDets.forEach(c => { totals[c] = (totals[c] || 0) + 1; });
+    setSessionClassTotals(prev => {
+      const next = { ...prev };
+      Object.entries(totals).forEach(([k, v]) => { next[k] = (next[k] || 0) + v; });
+      return next;
+    });
+  };
+
+  const handleVideoFile = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('video/')) return;
+    void analyzeVideoFile(file);
+  };
+
   const handleFiles = (files: FileList | null) => {
     const list = files ? Array.from(files) : [];
     if (list.length === 0) return;
@@ -402,7 +483,7 @@ export function ObjectDetectionPage() {
     setDetections([]);
     setActiveIdx(null);
     setDetectionResultSnapshot(null);
-    setPresentationMode(false);
+    setBatchDetectionsMap({});
     setStatus(
       list.length > 1
         ? `Пакет: ${list.length} зображень — запустіть детекцію або «Детектувати пакет»`
@@ -477,7 +558,31 @@ export function ObjectDetectionPage() {
       const lineBoost = isActive ? pulse : 1;
       ctx.lineWidth = (isActive ? 3.2 : 2) * lineBoost;
       ctx.strokeStyle = col;
-      ctx.strokeRect(sx, sy, sw, sh);
+
+      // Кутові дужки замість суцільного прямокутника
+      const cornerLen = Math.min(sw, sh) * 0.26;
+      ctx.beginPath();
+      // Верхній лівий кут
+      ctx.moveTo(sx, sy + cornerLen); ctx.lineTo(sx, sy); ctx.lineTo(sx + cornerLen, sy);
+      // Верхній правий кут
+      ctx.moveTo(sx + sw - cornerLen, sy); ctx.lineTo(sx + sw, sy); ctx.lineTo(sx + sw, sy + cornerLen);
+      // Нижній правий кут
+      ctx.moveTo(sx + sw, sy + sh - cornerLen); ctx.lineTo(sx + sw, sy + sh); ctx.lineTo(sx + sw - cornerLen, sy + sh);
+      // Нижній лівий кут
+      ctx.moveTo(sx + cornerLen, sy + sh); ctx.lineTo(sx, sy + sh); ctx.lineTo(sx, sy + sh - cornerLen);
+      ctx.stroke();
+
+      // Для активного об'єкта — легка заливка та пунктирний контур
+      if (isActive) {
+        ctx.globalAlpha = op * 0.10;
+        ctx.fillStyle = col;
+        ctx.fillRect(sx, sy, sw, sh);
+        ctx.globalAlpha = op * 0.35;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(sx, sy, sw, sh);
+        ctx.setLineDash([]);
+      }
+
       ctx.restore();
 
       const tag = `${label} · ${Math.round(score * 100)}%`;
@@ -498,13 +603,6 @@ export function ObjectDetectionPage() {
   const runImageDetection = async () => {
     if (!imageUrl || isRunning) return;
     setIsRunning(true);
-    try {
-      const key = "mih_analyses_count";
-      const cur = Number(localStorage.getItem(key) || "0");
-      localStorage.setItem(key, String(cur + 1));
-    } catch {
-      // ignore
-    }
     const m = await ensureModel();
     if (!m) {
       setIsRunning(false);
@@ -545,13 +643,6 @@ export function ObjectDetectionPage() {
   const startWebcam = async () => {
     if (isRunning) return;
     setIsRunning(true);
-    try {
-      const key = "mih_analyses_count";
-      const cur = Number(localStorage.getItem(key) || "0");
-      localStorage.setItem(key, String(cur + 1));
-    } catch {
-      // ignore
-    }
     const m = await ensureModel();
     if (!m) {
       setIsRunning(false);
@@ -572,7 +663,6 @@ export function ObjectDetectionPage() {
 
       const tick = async (t: number) => {
         rafRef.current = requestAnimationFrame(tick);
-        // throttle: ~5 fps
         if (t - lastTickRef.current < 200) return;
         lastTickRef.current = t;
         if (!videoRef.current) return;
@@ -610,6 +700,29 @@ export function ObjectDetectionPage() {
     if (mode === 'webcam') {
       draw(sorted, el, { pulse: pulseRef.current });
     }
+  };
+
+  /** Завантажує результати детекції об'єктів у форматі JSON. */
+  const handleExportJson = () => {
+    const data = {
+      module: 'object-detection',
+      exportedAt: new Date().toISOString(),
+      mode,
+      totalDetections: detections.length,
+      detections: detections.map(d => ({
+        class: d.class,
+        score: d.score,
+        bbox: { x: d.bbox[0], y: d.bbox[1], width: d.bbox[2], height: d.bbox[3] }
+      })),
+      sessionClassTotals
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `detection-result-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const exportDetectionPng = () => {
@@ -691,6 +804,8 @@ export function ObjectDetectionPage() {
         setDetections(sortedDets);
         setActiveIdx(sortedDets.length ? 0 : null);
         setImageRevealKey((k) => k + 1);
+        // Зберігаємо результати для кожного зображення окремо
+        setBatchDetectionsMap((prev) => ({ ...prev, [i]: sortedDets }));
         for (const d of sortedDets) {
           const c = d.class ?? 'object';
           mergedBatch[c] = (mergedBatch[c] || 0) + 1;
@@ -716,9 +831,13 @@ export function ObjectDetectionPage() {
     const i = ((idx % batchUrls.length) + batchUrls.length) % batchUrls.length;
     setBatchIndex(i);
     setImageUrl(batchUrls[i]);
-    setDetections([]);
-    setActiveIdx(null);
-    setPresentationMode(false);
+    // Відновлюємо детекції для цього індексу, якщо вони були збережені
+    setBatchDetectionsMap((prev) => {
+      const saved = prev[i] ?? [];
+      setDetections(saved);
+      setActiveIdx(saved.length ? 0 : null);
+      return prev;
+    });
     revealTimelineRef.current?.kill();
     revealTimelineRef.current = null;
     opacityProxiesRef.current = [];
@@ -726,13 +845,6 @@ export function ObjectDetectionPage() {
     if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
   }, [batchUrls]);
 
-  const stepActiveDet = (delta: number) => {
-    if (sorted.length === 0) return;
-    setActiveIdx((cur) => {
-      const base = cur === null ? 0 : cur;
-      return (base + delta + sorted.length) % sorted.length;
-    });
-  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -769,24 +881,10 @@ export function ObjectDetectionPage() {
     <div className={"panel-grid " + (showResults ? "det-has-results" : "det-no-results")}>
 
         <div className="panel det-panel--rel">
-        {user &&
-        detectionResultSnapshot &&
-        mode === 'image' &&
-        sorted.length > 0 ? (
-          <div className="mih-fav-star-host">
-            <FavoriteResultStar
-              path="/detection"
-              title={`Детекція (${sorted.length})`}
-              previewImage={detectionResultSnapshot.previewImage}
-              resumePayload={detectionResultSnapshot.resumePayload}
-            />
-          </div>
-        ) : null}
         <div className="panel-header">
           <div>
             <div className="panel-title">
               <span>Object Detection</span>
-              <span className="label-pill">COCO-SSD</span>
             </div>
           </div>
           <div className="det-mode-tabs">
@@ -806,6 +904,22 @@ export function ObjectDetectionPage() {
             >
               Webcam
             </button>
+            <button
+              type="button"
+              className={`secondary-button ${mode === 'video' ? 'det-tab--active' : ''}`}
+              onClick={() => setMode('video')}
+              disabled={mode === 'video' || isRunning || isAnalyzingVideo}
+            >
+              Video
+            </button>
+            {user && detectionResultSnapshot && mode === 'image' && sorted.length > 0 ? (
+              <FavoriteResultStar
+                path="/detection"
+                title={`Детекція (${sorted.length})`}
+                previewImage={detectionResultSnapshot.previewImage}
+                resumePayload={detectionResultSnapshot.resumePayload}
+              />
+            ) : null}
           </div>
         </div>
 
@@ -834,7 +948,7 @@ export function ObjectDetectionPage() {
                 </button>
               ) : null}
             </>
-          ) : (
+          ) : mode === 'webcam' ? (
             <>
               <button type="button" className="primary-button" onClick={startWebcam} disabled={!!streamRef.current || isLoadingModel}>
                 ▶ Start
@@ -842,6 +956,20 @@ export function ObjectDetectionPage() {
               <button type="button" className="secondary-button" onClick={stopWebcam} disabled={!streamRef.current}>
                 ⏹ Stop
               </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => videoFileInputRef.current?.click()}
+                disabled={isAnalyzingVideo || isLoadingModel}
+              >
+                Upload video
+              </button>
+              {isAnalyzingVideo && (
+                <span className="det-status">Аналіз… {videoProgress}%</span>
+              )}
             </>
           )}
           <button
@@ -851,10 +979,10 @@ export function ObjectDetectionPage() {
             disabled={
               mode === 'image'
                 ? !imageUrl && detections.length === 0 && batchUrls.length === 0 && Object.keys(sessionClassTotals).length === 0
-                : detections.length === 0
+                : detections.length === 0 && videoFrameResults.length === 0
             }
           >
-            🧹 Clear
+            Clear
           </button>
           <input
             ref={fileInputRef}
@@ -863,6 +991,13 @@ export function ObjectDetectionPage() {
             multiple
             style={{ display: 'none' }}
             onChange={(e) => handleFiles(e.target.files)}
+          />
+          <input
+            ref={videoFileInputRef}
+            type="file"
+            accept="video/*"
+            style={{ display: 'none' }}
+            onChange={(e) => handleVideoFile(e.target.files)}
           />
         </div>
 
@@ -883,24 +1018,6 @@ export function ObjectDetectionPage() {
           ) : null}
           {mode === 'image' && sorted.length > 0 ? (
             <div className="det-toolbar-tools">
-              <label className="det-check">
-                <input
-                  type="checkbox"
-                  checked={presentationMode}
-                  onChange={(e) => setPresentationMode(e.target.checked)}
-                />
-                Презентація
-              </label>
-              {!presentationMode ? (
-                <>
-                  <button type="button" className="secondary-button" onClick={() => stepActiveDet(-1)} title="Попередній bbox">
-                    ◀
-                  </button>
-                  <button type="button" className="secondary-button" onClick={() => stepActiveDet(1)} title="Наступний bbox">
-                    ▶
-                  </button>
-                </>
-              ) : null}
               <button
                 type="button"
                 className="secondary-button"
@@ -910,9 +1027,21 @@ export function ObjectDetectionPage() {
               >
                 Експорт PNG
               </button>
+              {detections.length > 0 ? (
+                <button type="button" className="secondary-button" onClick={handleExportJson}>
+                  ↓ Export JSON
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
+
+        {isLoadingModel && (
+          <div className="det-model-loading">
+            <div className="det-model-loading-bar" />
+            <span>Loading COCO-SSD model…</span>
+          </div>
+        )}
 
         <div className="file-drop-zone det-zone" onDrop={onDrop} onDragOver={onDragOver} onClick={() => mode === 'image' && fileInputRef.current?.click()}>
           {mode === 'image' ? (
@@ -935,13 +1064,56 @@ export function ObjectDetectionPage() {
                 <div className="det-empty-sub"></div>
               </div>
             )
-          ) : (
+          ) : mode === 'webcam' ? (
             <div className={"det-stage " + (showResults ? "" : "det-stage--full")}>
               <video ref={videoRef} className="det-media" playsInline muted />
               <canvas ref={overlayRef} className="det-overlay" />
             </div>
+          ) : (
+            imageUrl ? (
+              <div className={"det-stage " + (showResults ? "" : "det-stage--full")}>
+                <img
+                  ref={imgRef}
+                  className="det-media"
+                  src={imageUrl}
+                  alt=""
+                  onLoad={() => {
+                    if (imgRef.current) syncOverlayToMedia(imgRef.current);
+                  }}
+                />
+                <canvas ref={overlayRef} className="det-overlay" />
+                {isAnalyzingVideo && (
+                  <div className="det-stage-loading">
+                    <span style={{ color: '#e5e7eb', fontSize: '0.9rem' }}>{videoProgress}%</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="det-empty" onClick={(e) => { e.stopPropagation(); videoFileInputRef.current?.click(); }}>
+                <div className="det-empty-title">Click to upload a video file</div>
+                <div className="det-empty-sub">MP4, WebM, MOV and other formats</div>
+              </div>
+            )
           )}
         </div>
+
+        {mode === 'video' && videoFrameResults.length > 0 && (
+          <div className="det-video-timeline">
+            <div className="det-video-timeline-title">Frame analysis timeline ({videoFrameResults.length} frames)</div>
+            <div className="det-video-bars">
+              {videoFrameResults.map((fr, i) => (
+                <div key={i} className="det-video-bar-col">
+                  <div
+                    className="det-video-bar"
+                    style={{ height: `${Math.round((fr.count / Math.max(...videoFrameResults.map(f => f.count), 1)) * 48)}px` }}
+                    title={`${(fr.timeMs / 1000).toFixed(1)}s: ${fr.count} objects — ${fr.classes.join(', ')}`}
+                  />
+                  <span className="det-video-bar-label">{(fr.timeMs / 1000).toFixed(0)}s</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="panel det-results-panel">

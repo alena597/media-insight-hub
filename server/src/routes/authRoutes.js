@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
-import { getStore, updateStore } from '../store.js';
+import { getDb } from '../db.js';
 import { signToken, verifyToken } from '../auth.js';
 
 const router = Router();
@@ -27,12 +27,16 @@ router.post('/register', async (req, res, next) => {
     if (!email || !email.includes('@')) {
       return res.status(400).json({ error: 'Некоректний email', code: 'INVALID_EMAIL' });
     }
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Пароль мінімум 6 символів', code: 'WEAK_PASSWORD' });
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Пароль мінімум 8 символів', code: 'WEAK_PASSWORD' });
+    }
+    if (!/[\d\W_]/.test(password)) {
+      return res.status(400).json({ error: 'Пароль повинен містити хоча б одну цифру або спецсимвол', code: 'WEAK_PASSWORD' });
     }
 
-    const store = getStore();
-    if (store.users.some((u) => u.email === email)) {
+    const db = getDb();
+    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    if (existing) {
       return res.status(409).json({ error: 'Цей email уже зареєстровано', code: 'EMAIL_IN_USE' });
     }
 
@@ -40,22 +44,11 @@ router.post('/register', async (req, res, next) => {
     const hash = await bcrypt.hash(password, 10);
     const createdAt = new Date().toISOString();
 
-    updateStore((s) => {
-      s.users.push({
-        id,
-        email,
-        password_hash: hash,
-        display_name: displayName,
-        created_at: createdAt
-      });
-    });
+    db.prepare(
+      'INSERT INTO users (id, email, password_hash, display_name, created_at) VALUES (?, ?, ?, ?, ?)'
+    ).run(id, email, hash, displayName, createdAt);
 
-    const user = rowToUser({
-      id,
-      email,
-      display_name: displayName,
-      created_at: createdAt
-    });
+    const user = rowToUser({ id, email, display_name: displayName, created_at: createdAt });
     const token = signToken({ sub: id, email });
     res.status(201).json({ token, user });
   } catch (err) {
@@ -74,8 +67,8 @@ router.post('/login', async (req, res, next) => {
       return res.status(400).json({ error: 'Вкажіть email і пароль', code: 'INVALID_INPUT' });
     }
 
-    const store = getStore();
-    const row = store.users.find((u) => u.email === email);
+    const db = getDb();
+    const row = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
     const valid = row ? await bcrypt.compare(password, row.password_hash) : false;
     if (!row || !valid) {
       return res.status(401).json({ error: 'Невірний email або пароль', code: 'INVALID_CREDENTIALS' });
@@ -99,8 +92,8 @@ router.get('/me', (req, res) => {
     return res.status(401).json({ error: 'Недійсний токен', code: 'INVALID_TOKEN' });
   }
 
-  const store = getStore();
-  const row = store.users.find((u) => u.id === decoded.sub);
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.sub);
   if (!row) {
     return res.status(401).json({ error: 'Користувача не знайдено', code: 'USER_NOT_FOUND' });
   }

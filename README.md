@@ -16,9 +16,9 @@
 |-----------|-----------|----------|
 | Веб-сервер (HTTP) | Так | У розробці: Vite dev server (порт 5173) роздає SPA та проксує `/api` на API. У production: Nginx, Caddy або інший reverse proxy — статика з `dist/` та проксування `/api` → Node. |
 | Application server | Так | Node.js + Express (`server/`) — REST API, JWT, bcrypt. |
-| СУБД (класична) | Ні | PostgreSQL/MySQL не використовуються. |
-| Персистентні дані | Файл `server/data.json` | Користувачі, історія, обране; для лабораторної це файлове сховище замість СУБД. Можна замінити на БД без зміни контракту API. |
-| Файлове сховище | Так | Дані додатку — `server/data.json`; шлях задається `DATABASE_PATH` у `.env`. |
+| СУБД (класична) | SQLite | `better-sqlite3` — вбудована БД без окремого процесу; файл `server/data.db`. |
+| Персистентні дані | Файл `server/data.db` | Користувачі, історія, обране, аналітика; SQLite з WAL-режимом. Шлях задається `DB_PATH` у `.env`. |
+| Файлове сховище | Так | Один файл `server/data.db` (+ WAL-файли `.db-shm`, `.db-wal` під час роботи). |
 | Кешування (Redis тощо) | Ні | Не передбачено. Статичні асети можуть кешуватися на рівні CDN/веб-сервера. |
 | CI/CD | Частково | GitHub Actions: CI — `npm run check` і `npm run build` (`.github/workflows/ci.yml`); документація — TypeDoc на Pages (`.github/workflows/docs.yml`). |
 
@@ -31,7 +31,7 @@ flowchart LR
   end
   subgraph server_side [Сервер застосунку]
     API[Node.js Express API]
-    Store[(server/data.json)]
+    Store[(server/data.db SQLite)]
   end
   Browser -->|HTTPS REST /api| API
   API --> Store
@@ -101,15 +101,16 @@ copy server\.env.example server\.env
 
 - `JWT_SECRET` — довгий випадковий рядок (мінімум 32 символи); у production — обов’язково унікальний секрет.
 - `PORT` — порт API (за замовчуванням `4000`).
-- За потреби `DATABASE_PATH` — абсолютний або відносний шлях до JSON-файлу даних.
+- За потреби `DB_PATH` — абсолютний або відносний шлях до SQLite-файлу (за замовчуванням `server/data.db`).
+- `FRONTEND_ORIGIN` — базовий URL фронтенду для CORS (за замовчуванням дозволено всі).
 
 Frontend (опційно) — у корені можна створити `.env.local` на основі `.env.example`:
 
 - `VITE_API_URL`** — залиште порожнім у режимі розробки (Vite проксує `/api` на `http://127.0.0.1:4000`). Якщо фронт і API на різних хостах — вкажіть базовий URL API (без завершального `/`).
 
-### 5. «База даних»
+### 5. База даних (SQLite)
 
-Класична СУБД не налаштовується. При першому зверненні API створюється файл `server/data.json` (якщо ще не існує). Резервне копіювання цього файлу описано в [`docs/backup.md`](docs/backup.md).
+При першому старті API автоматично створює файл `server/data.db` і ініціалізує схему (таблиці `users`, `history`, `favorites`, `detection_analytics`). Ніяких додаткових дій не потрібно. Резервне копіювання описано в [`docs/backup.md`](docs/backup.md).
 
 ### 6. Запуск у режимі розробки
 
@@ -187,7 +188,9 @@ npm run dev
 | React 18 + Vite + TypeScript | SPA |
 | React Router v6 | Маршрутизація |
 | TensorFlow.js, Tesseract.js, COCO-SSD, MobileNet | AI в браузері |
-| Node.js + Express | REST API, JWT |
+| Node.js + Express | REST API, JWT, rate-limiting |
+| better-sqlite3 | SQLite — персистентне сховище |
+| Winston + winston-daily-rotate-file | Структуроване логування |
 | GSAP | Анімації UI |
 
 ---
@@ -212,4 +215,4 @@ npm run dev
 ## Автор
 
 Ярмола Альона — студентка групи ІН-21  
-Сумський державний університет, 2025
+Сумський державний університет, 2026

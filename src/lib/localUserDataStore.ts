@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc, jsdoc/require-param, jsdoc/require-returns -- прості операції з localStorage */
 import type { FavoriteItem, HistoryEntry } from './userDataTypes';
 
 const H_PREFIX = 'mih_pending_history_v1:';

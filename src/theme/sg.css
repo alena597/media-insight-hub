@@ -5,6 +5,13 @@
   border: 1px solid var(--border-subtle);
   padding: 0.9rem 1rem 1rem;
   box-shadow: 0 22px 60px rgba(15, 23, 42, 0.98);
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sg-body {
+  flex: 1;
 }
 
 .sg-header {
@@ -428,7 +435,7 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
-/* Smart Gallery: slide results/sidebar in after Run analysis */
+
 .sg-body {
   transition: grid-template-columns 0.42s ease;
 }

@@ -6,10 +6,7 @@ import DailyRotateFile from 'winston-daily-rotate-file';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/**
- * Рівень логування змінюється через змінну оточення `LOG_LEVEL` без перекомпіляції
- * (наприклад: debug, info, warn, error). Значення відповідають рівням Winston.
- */
+
 const level = (process.env.LOG_LEVEL || 'info').toLowerCase();
 
 const logDir = process.env.LOG_DIR || path.join(__dirname, '..', 'logs');

@@ -5,6 +5,7 @@ import { saveLastWorkbenchResume } from "../lib/lastWorkbenchSession";
 import { consumeResumeForPath } from "../lib/mihResumeBridge";
 import type { MihResumeTranscriber } from "../lib/mihResume";
 import { addHistoryEntry } from "../lib/userDataApi";
+import { FavoriteResultStar } from "../components/FavoriteResultStar";
 import "../theme/transcriber.css";
 
 type Mode = "mic" | "text";
@@ -85,6 +86,24 @@ const POS = [
   "погоджуюсь",
   "рекомендую",
   "обожнюю",
+  "подобається",
+  "подобалось",
+  "подобалося",
+  "подобалася",
+  "сподобалось",
+  "сподобалося",
+  "сподобалася",
+  "подобаються",
+  "чудовий",
+  "чудова",
+  "гарний",
+  "гарна",
+  "задоволений",
+  "задоволена",
+  "цікаво",
+  "захоплює",
+  "позитивно",
+  "зручно",
   // EN
   "good",
   "great",
@@ -198,7 +217,6 @@ function analyzeSentiment(text: string): { sentiment: Sentiment; score: number }
 
   const n = normalizeWords(text);
 
-  // UA complaint/service patterns (very common in reviews)
   const negPatterns: RegExp[] = [
     /нема(є)?\b/u,
     /неможливо\b/u,
@@ -253,12 +271,10 @@ function analyzeSentiment(text: string): { sentiment: Sentiment; score: number }
   let pos = 0;
   let neg = 0;
 
-  // Pattern hits contribute strong signal
   for (const re of negPatterns) {
     if (re.test(n)) neg += 2;
   }
 
-  // punctuation heuristics
   const q = (text.match(/\?/g) ?? []).length;
   const ex = (text.match(/!/g) ?? []).length;
   const dots = (text.match(/…|\.\.\./g) ?? []).length;
@@ -270,7 +286,6 @@ function analyzeSentiment(text: string): { sentiment: Sentiment; score: number }
     else if (neg > pos) neg += 1;
   }
 
-  // token-based lexicon + negation handling
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
     const prev = tokens[i - 1];
@@ -284,9 +299,8 @@ function analyzeSentiment(text: string): { sentiment: Sentiment; score: number }
       prev === "dont";
 
 
-    // UA root matching (covers сподобалось/альтернативи/запропонувавши)
-    const uaPosRoots = ["сподоб", "подоб", "задовол", "рекоменд", "вдяч", "супер", "чудов", "класн", "гарн", "крут", "відмін", "прекрас"];
-    const uaNegRoots = ["незадовол", "розчар", "проблем", "помил", "дорог", "альтернатив", "ціна", "грош", "непрац", "ламан", "обман", "ігнор", "навяз", "нав\u2019яз", "сподоб", "подоб", "запропон", "груб", "хам", "халат", "непрофес", "некорект", "якіст", "якост", "нуль", "дно", "здерт", "насиль", "змуш", "спізн", "перенос", "запис"];
+    const uaPosRoots = ["сподоб", "подоб", "задовол", "рекоменд", "вдяч", "супер", "чудов", "класн", "гарн", "крут", "відмін", "прекрас", "добр", "любл", "обожн", "захопл", "радіє", "щаслив", "позитив", "приємн", "зручн", "цікав", "смачн", "корисн", "якісн", "зручніш"];
+    const uaNegRoots = ["незадовол", "розчар", "проблем", "помил", "дорог", "альтернатив", "непрац", "ламан", "обман", "ігнор", "навяз", "нав\u2019яз", "запропон", "груб", "хам", "халат", "непрофес", "некорект", "якіст", "якост", "нуль", "дно", "здерт", "насиль", "змуш", "спізн", "перенос", "запис"];
     const hasRoot = (roots: string[]) => roots.some((r) => t.startsWith(r));
     if (hasRoot(uaPosRoots)) {
       if (isNegation) neg += 1;
@@ -308,7 +322,6 @@ function analyzeSentiment(text: string): { sentiment: Sentiment; score: number }
       continue;
     }
 
-    // English contractions / simple variants
     if (t.endsWith("n't") && i + 1 < tokens.length) {
       const next = tokens[i + 1];
       if (posSet.has(next)) neg += 1;
@@ -316,7 +329,6 @@ function analyzeSentiment(text: string): { sentiment: Sentiment; score: number }
     }
   }
 
-  // force strong negative if complaint-heavy
   if (neg >= 4 && pos === 0) return { sentiment: "negative", score: -0.7 };
   const total = pos + neg;
   const score = total === 0 ? 0 : (pos - neg) / total;
@@ -544,35 +556,82 @@ export function MediaTranscriberPage() {
   }, [lang]);
 
 
+  /** Завантажує результати транскрибації та аналізу тональності у форматі JSON. */
+  const handleExportJson = () => {
+    const data = {
+      module: 'media-transcriber',
+      exportedAt: new Date().toISOString(),
+      text,
+      wordCount: text.trim().split(/\s+/).filter(Boolean).length,
+      sentiment: {
+        positive: summary.positive,
+        negative: summary.negative,
+        neutral: summary.neutral,
+        positivePct: summary.pPct,
+        negativePct: summary.nPct,
+        neutralPct: summary.uPct
+      },
+      sentences: summary.sentences.map(s => {
+        const r = analyzeSentiment(s);
+        return { text: s, sentiment: r.sentiment, score: r.score };
+      })
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transcriber-result-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const showSentimentPanel = mode === "mic" ? segments.length > 0 : text.trim().length > 0;
 
+  const trResultSnapshot = useMemo(() => {
+    const t = text.trim();
+    if (t.length < 10) return null;
+    const payload: MihResumeTranscriber = { v: 1, module: "transcriber", text: t };
+    const s = JSON.stringify(payload);
+    if (s.length > 1_450_000) return null;
+    return { resumePayload: s };
+  }, [text]);
+
   return (
-    <div className={`panel-grid ${showSentimentPanel ? '' : 'panel-grid--single'}`}>
-      <div className="panel">
+    <div className={`panel-grid tr-panel-grid ${showSentimentPanel ? '' : 'panel-grid--single'}`}>
+      <div className="panel tr-main-panel">
         <div className="panel-header">
           <div>
             <div className="panel-title">
               <span>Media Transcriber</span>
-              <span className="label-pill">Web Speech · NLP</span>
             </div>
           </div>
-          <div className="tr-tabs">
-            <button
-              type="button"
-              className={`secondary-button ${mode === "mic" ? "tr-tab--active" : ""}`}
-              onClick={() => setMode("mic")}
-              disabled={mode === "mic" || isListening}
-            >
-              🎙 Record
-            </button>
-            <button
-              type="button"
-              className={`secondary-button ${mode === "text" ? "tr-tab--active" : ""}`}
-              onClick={() => setMode("text")}
-              disabled={mode === "text" || isListening}
-            >
-              T Paste text
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {user && trResultSnapshot && (
+              <FavoriteResultStar
+                path="/transcriber"
+                title={`Транскрипт · ${text.slice(0, 48)}${text.length > 48 ? '…' : ''}`}
+                previewImage=""
+                resumePayload={trResultSnapshot.resumePayload}
+              />
+            )}
+            <div className="tr-tabs">
+              <button
+                type="button"
+                className={`secondary-button ${mode === "mic" ? "tr-tab--active" : ""}`}
+                onClick={() => setMode("mic")}
+                disabled={mode === "mic" || isListening}
+              >
+                🎙 Record
+              </button>
+              <button
+                type="button"
+                className={`secondary-button ${mode === "text" ? "tr-tab--active" : ""}`}
+                onClick={() => setMode("text")}
+                disabled={mode === "text" || isListening}
+              >
+                T Paste text
+              </button>
+            </div>
           </div>
         </div>
 
@@ -599,14 +658,24 @@ export function MediaTranscriberPage() {
                 {isListening ? "⏹ Stop" : "🎙 Start"}
               </button>
               <button type="button" className="secondary-button" onClick={clearAll} disabled={isListening}>
-                🧹 Clear
+                Clear
               </button>
+              {text.trim().length > 0 ? (
+                <button type="button" className="secondary-button" onClick={handleExportJson}>
+                  ↓ Export JSON
+                </button>
+              ) : null}
             </>
           ) : (
             <>
               <button type="button" className="secondary-button" onClick={clearAll}>
-                🧹 Clear
+                Clear
               </button>
+              {text.trim().length > 0 ? (
+                <button type="button" className="secondary-button" onClick={handleExportJson}>
+                  ↓ Export JSON
+                </button>
+              ) : null}
             </>
           )}
         </div>

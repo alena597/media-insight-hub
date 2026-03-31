@@ -206,7 +206,6 @@ export function HistoryPage() {
                     <img src={getCardPreviewUrl(row)} alt="" className="archive-card-img" />
                   </button>
                   <span className="archive-badge archive-badge--tl">{stats.leftBadge}</span>
-                  <span className="archive-badge archive-badge--tr">{stats.rightBadge}</span>
                   <TrashIconButton
                     className="archive-card-trash"
                     ariaLabel="Видалити запис з архіву"
@@ -230,16 +229,22 @@ export function HistoryPage() {
                     </svg>
                     <time dateTime={new Date(row.createdAtMs).toISOString()}>{formatArchiveDate(row.createdAtMs)}</time>
                   </div>
-                  <div className="archive-card-stats">
-                    <div className="archive-stat archive-stat--objects">
-                      <span className="archive-stat-label">Об’єкти</span>
-                      <span className="archive-stat-value">{stats.objects}</span>
+                  {(stats.objects > 0 || stats.keywords > 0) && (
+                    <div className="archive-card-stats">
+                      {stats.objects > 0 && (
+                        <div className="archive-stat archive-stat--objects">
+                          <span className="archive-stat-label">Об’єкти</span>
+                          <span className="archive-stat-value">{stats.objects}</span>
+                        </div>
+                      )}
+                      {stats.keywords > 0 && (
+                        <div className="archive-stat archive-stat--keywords">
+                          <span className="archive-stat-label">Слів</span>
+                          <span className="archive-stat-value">{stats.keywords}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="archive-stat archive-stat--keywords">
-                      <span className="archive-stat-label">Ключ. слова</span>
-                      <span className="archive-stat-value">{stats.keywords}</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </li>
             );

@@ -1,12 +1,12 @@
 # Розгортання у production (Release engineer / DevOps)
 
-Цей документ описує розгортання Media Insight Hub у виробничому середовищі: статичний фронтенд (React/Vite build), Node.js API та персистентне сховище `data.json`.
+Цей документ описує розгортання Media Insight Hub у виробничому середовищі: статичний фронтенд (React/Vite build), Node.js API та персистентне сховище SQLite.
 
 ## 1. Архітектура розгортання
 
 - Frontend: статичні файли з каталогу `dist/` після `npm run build`.
 - Backend: процес Node.js (`server/`), слухає HTTP (типово порт `4000`).
-- Дані: один JSON-файл на диску (`server/data.json` або шлях з `DATABASE_PATH`).
+- Дані: SQLite-файл `server/data.db` (або шлях з `DB_PATH`). WAL-режим увімкнено автоматично при старті.
 - Рекомендовано: reverse proxy (Nginx, Caddy) — TLS, проксування `/api` на backend, роздача статики з `dist/`.
 
 ## 2. Вимоги до апаратного забезпечення
@@ -29,22 +29,23 @@
 - Процес-менеджер (рекомендовано): systemd, PM2, або контейнеризація (див. `docker-compose.yml` у репозиторії, якщо наявний).
 
 
-## 4. Налаштування сховища даних (замість класичної СУБД)
+## 4. Налаштування сховища даних (SQLite)
 
-Проєкт використовує файл JSON:
+Проєкт використовує SQLite через `better-sqlite3`:
 
-- Змінна `DATABASE_PATH` у `server/.env` вказує шлях до файлу.
-- Каталог має бути доступний для запису користувачу, під яким працює Node.
+- Файл бази даних: `server/data.db` (за замовчуванням, поруч із `src/`).
+- Змінна `DB_PATH` у `server/.env` дозволяє задати інший абсолютний або відносний шлях.
+- Каталог, де лежить файл, має бути доступний для запису користувачу, під яким працює Node.
+- Схема (таблиці `users`, `history`, `favorites`, `detection_analytics`) ініціалізується автоматично при першому старті API через `CREATE TABLE IF NOT EXISTS`.
+- WAL-режим та `foreign_keys` вмикаються через `PRAGMA` при відкритті з'єднання.
 - Рекомендовано тримати файл на окремому томі або регулярно копіювати (див. `backup.md`).
-
-Міграції схеми «БД» у проєкті не автоматизовані; при зміні формату файлу потрібен ручний або скриптований перенос.
 
 ## 5. Розгортання коду
 
 1. Клонувати репозиторій на сервер (окремий користувач `deploy` або CI).
 2. У корені: `npm ci --legacy-peer-deps` → `npm run build` → артефакт у `dist/`.
 3. У `server/`: `npm ci --omit=dev` (або `npm install --omit=dev`).
-4. Створити `server/.env` (див. `server/.env.example`): `JWT_SECRET`, `PORT`, `FRONTEND_ORIGIN`, `DATABASE_PATH`.
+4. Створити `server/.env` (див. `server/.env.example`): `JWT_SECRET`, `PORT`, `FRONTEND_ORIGIN`, `DB_PATH` (опційно).
 5. Скопіювати `dist/` у каталог веб-сервера (наприклад `/var/www/mih/dist/`).
 6. Запустити API через systemd/PM2 (див. нижче).
 
@@ -71,7 +72,7 @@ WantedBy=multi-user.target
 
 ## 6. CI/CD (GitHub Actions)
 
-У репозиторії налаштовано workflow розгортання документації TypeDoc на GitHub Pages (`.github/workflows/docs.yml`). Повний деплой застосунку на власний сервер можна додати окремим workflow (build → SSH/rsync → restart) — за політикою вашої команди.
+У репозиторії налаштовано workflow розгортання документації TypeDoc на GitHub Pages (`.github/workflows/docs.yml`). Повний деплой застосунку на власний сервер можна додати окремим workflow (build → SSH/rsync → restart).
 
 ## 7. Контейнеризація (Docker)
 
@@ -100,7 +101,7 @@ WantedBy=multi-user.target
 
 3. Відкрийте http://localhost:8080 — статика та `/api` через один хост.
 
-Дані зберігаються у томі `mih-data` (файл `/data/data.json` всередині контейнера API). Для production задайте надійний `JWT_SECRET` і налаштуйте резервне копіювання тому або знімок.
+Дані зберігаються у томі `mih-data` (файл `/data/data.db` всередині контейнера API). Для production задайте надійний `JWT_SECRET` і налаштуйте резервне копіювання тому або знімок.
 
 ---
 

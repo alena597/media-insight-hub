@@ -133,6 +133,7 @@ export function OcrLabPage() {
     setLogLines([]);
     setImageSize(null);
     pushLog('[00:00.000] Image loaded, waiting for OCR...');
+    // Зберігаємо лише мінімальний стан сесії 
     if (user) {
       void (async () => {
         try {
@@ -148,15 +149,7 @@ export function OcrLabPage() {
               blocks: [],
               imageSize: { width: 1, height: 1 }
             };
-            const minimalJson = JSON.stringify(minimal);
-            saveLastWorkbenchResume('/ocr', minimalJson);
-            await addHistoryEntry({
-              kind: 'analysis',
-              label: 'OCR · зображення',
-              path: '/ocr',
-              previewImage: thumb,
-              resumePayload: minimalJson
-            });
+            saveLastWorkbenchResume('/ocr', JSON.stringify(minimal));
           }
         } catch {
           /* ignore */
@@ -187,16 +180,45 @@ export function OcrLabPage() {
     setOcrResultSnapshot(null);
   };
 
+  /**
+   * Обчислює фактичний прямокутник контенту зображення всередині box-у з object-fit: contain.
+   */
+  const getImageRenderRect = (): { contentW: number; contentH: number; offsetX: number; offsetY: number } | null => {
+    const img = imgRef.current;
+    const size = imageSize;
+    if (!img || !size || !img.clientWidth || !img.clientHeight) return null;
+    const boxW = img.clientWidth;
+    const boxH = img.clientHeight;
+    const natAspect = size.width / size.height;
+    const boxAspect = boxW / boxH;
+    let contentW: number, contentH: number, offsetX: number, offsetY: number;
+    if (natAspect > boxAspect) {
+      contentW = boxW;
+      contentH = boxW / natAspect;
+      offsetX = 0;
+      offsetY = (boxH - contentH) / 2;
+    } else {
+      contentH = boxH;
+      contentW = boxH * natAspect;
+      offsetX = (boxW - contentW) / 2;
+      offsetY = 0;
+    }
+    return { contentW, contentH, offsetX, offsetY };
+  };
+
   const runLaserAnimation = () => {
     if (!imageContainerRef.current || !laserRef.current) return;
-    const container = imageContainerRef.current;
     const laser = laserRef.current;
-    gsap.set(laser, { opacity: 1 });
+    const rect = getImageRenderRect();
+    const img = imgRef.current;
+    const startY = rect ? rect.offsetY : 0;
+    const endY = rect ? rect.offsetY + rect.contentH : (img?.clientHeight ?? imageContainerRef.current.clientHeight);
+    gsap.set(laser, { opacity: 1, top: startY, y: 0 });
     gsap.fromTo(
       laser,
-      { y: -10 },
+      { top: startY },
       {
-        y: container.clientHeight + 10,
+        top: endY,
         duration: 1.6,
         ease: 'power2.inOut',
         repeat: 1
@@ -222,13 +244,6 @@ export function OcrLabPage() {
  */
   const handleRunOcr = useCallback(async () => {
     if (!imageUrl || isRunning) return;
-    try {
-      const key = "mih_analyses_count";
-      const cur = Number(localStorage.getItem(key) || "0");
-      localStorage.setItem(key, String(cur + 1));
-    } catch {
-      // intentionally empty
-    }
     const el = imgRef.current;
     if (el?.naturalWidth && el?.naturalHeight) {
       setImageSize({ width: el.naturalWidth, height: el.naturalHeight });
@@ -247,9 +262,32 @@ export function OcrLabPage() {
 
     runLaserAnimation();
 
+    // Препроцесинг: підвищуємо контрастність та масштабуємо дрібні зображення
+    // Це значно покращує розпізнавання символів (особливо I/T, O/0 тощо)
+    const buildProcessedUrl = (): string => {
+      const img = imgRef.current;
+      if (!img || !img.naturalWidth || !img.naturalHeight) return imageUrl;
+      const nw = img.naturalWidth;
+      const nh = img.naturalHeight;
+      // Масштабуємо до мінімум 1500px по більшій стороні для кращого DPI
+      const scale = Math.max(1, Math.min(4, 1500 / Math.max(nw, nh)));
+      const cw = Math.round(nw * scale);
+      const ch = Math.round(nh * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = cw;
+      canvas.height = ch;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return imageUrl;
+      // Малюємо збільшене зображення з підвищеним контрастом
+      ctx.filter = 'grayscale(100%) contrast(1.5) brightness(1.05)';
+      ctx.drawImage(img, 0, 0, cw, ch);
+      return canvas.toDataURL('image/png');
+    };
+    const processedUrl = buildProcessedUrl();
+
     const start = performance.now();
     try {
-      const { data } = await Tesseract.recognize(imageUrl, langCode, {
+      const { data } = await Tesseract.recognize(processedUrl, langCode, {
         logger: (m) => {
           if (m.status === 'recognizing text') {
             const progress = Math.round(m.progress * 100);
@@ -346,6 +384,30 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
     }
   }, [imageUrl, isRunning, lang, user]);
 
+  /** Завантажує результати OCR у форматі JSON. */
+  const handleExportJson = () => {
+    const data = {
+      module: 'ocr',
+      exportedAt: new Date().toISOString(),
+      language: lang,
+      text,
+      wordsCount,
+      avgConfidence,
+      blocks: blocks.map(b => ({
+        text: b.text,
+        confidence: b.confidence,
+        bbox: b.bbox
+      }))
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ocr-result-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleCopy = async () => {
     if (!text) return;
     try {
@@ -397,6 +459,19 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
           >
             {isRunning ? 'Recognizing…' : '⚡ Run OCR'}
           </button>
+          {showResults && text ? (
+            <button type="button" className="secondary-button" onClick={handleExportJson}>
+              ↓ Export JSON
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={clearAll}
+            disabled={!imageUrl && !text}
+          >
+            Clear
+          </button>
         </div>
       </div>
 
@@ -442,13 +517,13 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
                 />
                 <div ref={laserRef} className="ocr-laser" />
                 {blocks.map((b, idx) => {
-                  const container = imageContainerRef.current;
-                  const size = imageSize;
-                  if (!container || !size) return null;
-                  const scaleX = container.clientWidth / size.width;
-                  const scaleY = container.clientHeight / size.height;
-                  const left = b.bbox.x0 * scaleX;
-                  const top = b.bbox.y0 * scaleY;
+                  const rect = getImageRenderRect();
+                  if (!rect) return null;
+                  const { contentW, contentH, offsetX, offsetY } = rect;
+                  const scaleX = contentW / (imageSize?.width ?? 1);
+                  const scaleY = contentH / (imageSize?.height ?? 1);
+                  const left = b.bbox.x0 * scaleX + offsetX;
+                  const top = b.bbox.y0 * scaleY + offsetY;
                   const width = (b.bbox.x1 - b.bbox.x0) * scaleX;
                   const height = (b.bbox.y1 - b.bbox.y0) * scaleY;
                   return (
@@ -463,18 +538,12 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
               </div>
             ) : (
               <div className="ocr-image-placeholder">
-                <div className="ocr-image-placeholder-icon">⬆</div>
                 <div className="ocr-image-placeholder-text">
-                  Upload an image
-                  <br />
-                  PNG, JPG, WEBP
+                  Click or drop an image
                 </div>
               </div>
             )}
           </div>
-          <button type="button" className="ocr-clear-btn" onClick={clearAll}>
-            🔄 Clear
-          </button>
         </div>
 
         <div className="ocr-right">
@@ -493,16 +562,6 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
             </button>
           </div>
           {showResults && isRunning ? <div className="ocr-right-loading">Recognizing…</div> : null}
-
-          {showResults ? (
-            <div className="ai-log" aria-live="polite">
-              {logLines.slice(-12).map((l, idx) => (
-                <div key={idx} className="ai-log-line">
-                  {l}
-                </div>
-              ))}
-            </div>
-          ) : null}
 
           {text ? (
             <>

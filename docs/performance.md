@@ -5,7 +5,7 @@
 This profiling pass targets the Node.js/Express backend in `server/` with focus on:
 
 - CPU-heavy request paths (`/api/history`, `/api/favorites`, auth bcrypt checks)
-- store serialization overhead (`data.json` writes)
+- SQLite query performance under synthetic load
 - event-loop responsiveness under CPU-bound operations
 
 ## Tooling used
@@ -49,9 +49,9 @@ Benchmark runs compare:
 
 ## Baseline hotspots (before optimization)
 
-1. `GET /history` selection (`filter + sort + Date parsing`)
-2. `GET /favorites` selection (`filter + sort + Date parsing`)
-3. Store persist serialization (`JSON.stringify(..., null, 2)`)
+1. `GET /history` selection (`filter + sort + Date parsing` on JSON store)
+2. `GET /favorites` selection (`filter + sort + Date parsing` on JSON store)
+3. Store persist serialization (`JSON.stringify(..., null, 2)` on `data.json`)
 4. Auth password validation (`bcrypt.compareSync`) causing high event-loop blocking
 
 ## Implemented optimizations
@@ -82,21 +82,15 @@ Changes:
   - `bcrypt.compareSync` -> `await bcrypt.compare`
 - handlers switched to `async` with `try/catch + next(err)` for safe Express error propagation
 
-### 3) Persist serialization cost
+### 3) Storage migration to SQLite
 
-File:
+The JSON file store (`server/src/store.js` / `data.json`) was replaced with SQLite (`server/src/db.js` / `data.db`).
 
-- `server/src/store.js`
+Benefits:
 
-Changes:
-
-- switched default JSON persist to compact mode (`JSON.stringify(cache)`)
-- optional pretty mode preserved via env flag `STORE_PRETTY_JSON=1`
-- added typing hints for store entities used in benchmarked routes
-
-Config update:
-
-- `server/.env.example` includes `STORE_PRETTY_JSON` note
+- atomic writes via WAL journaling — no serialization of the entire dataset on each write
+- indexed queries (`idx_history_user_ms`, `idx_favorites_user_ms`) replace full-scan filter+sort
+- `created_at_ms` integer column enables O(log n) range lookups
 
 ## Profiling results (after optimization run)
 
@@ -124,13 +118,7 @@ Memory snapshot during run:
 
 After current optimizations, remaining heavy areas:
 
-1. JSON file storage itself remains a scaling limit for write-heavy workloads
-2. bcrypt still dominates CPU cost at higher auth concurrency (even async version is CPU-expensive)
-3. request logging overhead can become noticeable on high RPS
+1. bcrypt still dominates CPU cost at higher auth concurrency (even async version is CPU-expensive)
+2. request logging overhead can become noticeable on high RPS
+3. SQLite WAL checkpoint behavior under sustained write load
 
-Recommended next steps:
-
-- migrate store to DB / append-only WAL
-- add request-level sampling for `http_response` logs
-- introduce cache for frequently read user slices (history/favorites)
-- run HTTP load tests (`autocannon`) for p95/p99 latency baselines

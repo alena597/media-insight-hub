@@ -1,4 +1,5 @@
 import { NavLink, Outlet, Route, Routes, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { DashboardPage } from './pages/DashboardPage';
 import { OcrLabPage } from './pages/OcrLabPage';
 import { SmartGalleryPage } from './pages/SmartGalleryPage';
@@ -175,12 +176,81 @@ function NavIcon({ kind }: { kind: NavIconKind }) {
 }
 
 /**
- * Верхня панель з брендом та кнопками входу / виходу.
+ * Іконка сонця для світлої теми.
+ *
+ * @returns SVG-елемент сонця.
+ */
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.22 5.22l1.42 1.42M17.36 17.36l1.42 1.42M5.22 18.78l1.42-1.42M17.36 6.64l1.42-1.42"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Іконка місяця для темної теми.
+ *
+ * @returns SVG-елемент місяця.
+ */
+function MoonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Верхня панель з брендом, перемикачем теми та кнопками входу / виходу.
  *
  * @returns Елемент хедера.
  */
 function AppHeaderBar() {
   const { user, signOut, loading } = useAuth();
+  const [isLight, setIsLight] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('mih_theme') === 'light';
+    } catch {
+      return false;
+    }
+  });
+
+  /** Ініціалізація теми з localStorage при монтуванні компонента */
+  useEffect(() => {
+    if (isLight) {
+      document.documentElement.classList.add('theme-light');
+    } else {
+      document.documentElement.classList.remove('theme-light');
+    }
+  }, [isLight]);
+
+  /** Перемикання між темною та світлою темою */
+  const handleThemeToggle = () => {
+    setIsLight((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('mih_theme', next ? 'light' : 'dark');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
 
   const handleSignOut = async () => {
     try {
@@ -194,6 +264,14 @@ function AppHeaderBar() {
     <header className="app-header">
       <span className="app-header-brand">Media Insight Hub</span>
       <div className="app-header-actions">
+        <button
+          type="button"
+          className="app-header-btn app-theme-toggle"
+          aria-label={isLight ? 'Перемкнути на темну тему' : 'Перемкнути на світлу тему'}
+          onClick={handleThemeToggle}
+        >
+          {isLight ? <MoonIcon /> : <SunIcon />}
+        </button>
         {loading ? (
           <span className="app-header-user">…</span>
         ) : user ? (
@@ -231,13 +309,6 @@ function MainLayout() {
   return (
     <div className="app-root">
       <aside className="sidebar">
-        <div className="logo">
-          <div className="logo-mark">AI</div>
-          <div>
-            <div className="logo-text-main">Transparency</div>
-            <div className="logo-text-sub">Media Lab</div>
-          </div>
-        </div>
         <nav className="nav">
           <div className="nav-section-label">Modules</div>
           <NavLink to="/dashboard" className="nav-link">

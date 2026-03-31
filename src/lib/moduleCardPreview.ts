@@ -2,15 +2,15 @@
  * Прев’ю карток історії/обраного: градієнт за маршрутом (без canvas) + витяг кадру з resume JSON.
  */
 
-const PALETTES: Record<string, [string, string]> = {
-  '/ocr': ['#0e7490', '#155e75'],
-  '/gallery': ['#6d28d9', '#4c1d95'],
-  '/detection': ['#059669', '#047857'],
-  '/transcriber': ['#d97706', '#b45309'],
-  '/dashboard': ['#334155', '#1e293b'],
-  '/profile': ['#475569', '#334155'],
-  '/history': ['#1d4ed8', '#1e3a8a'],
-  '/favorites': ['#a855f7', '#6b21a8']
+const PALETTES: Record<string, [string, string, string]> = {
+  '/ocr':         ['#06b6d4', '#6366f1', '#0ea5e9'],
+  '/gallery':     ['#a855f7', '#ec4899', '#8b5cf6'],
+  '/detection':   ['#10b981', '#06b6d4', '#3b82f6'],
+  '/transcriber': ['#f59e0b', '#ef4444', '#f97316'],
+  '/dashboard':   ['#475569', '#6366f1', '#334155'],
+  '/profile':     ['#64748b', '#475569', '#94a3b8'],
+  '/history':     ['#3b82f6', '#6366f1', '#1d4ed8'],
+  '/favorites':   ['#ec4899', '#a855f7', '#f43f5e']
 };
 
 /**
@@ -20,8 +20,8 @@ const PALETTES: Record<string, [string, string]> = {
  * @returns data:image/svg+xml URL.
  */
 export function gradientDataUrlForModulePath(path: string): string {
-  const [a, b] = PALETTES[path] ?? ['#334155', '#1e293b'];
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>`;
+  const [a, b, c] = PALETTES[path] ?? ['#334155', '#1e293b', '#475569'];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${a}"/><stop offset="50%" stop-color="${b}"/><stop offset="100%" stop-color="${c}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 

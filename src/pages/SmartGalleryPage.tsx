@@ -9,6 +9,7 @@ import { consumeResumeForPath } from '../lib/mihResumeBridge';
 import { saveLastWorkbenchResume } from '../lib/lastWorkbenchSession';
 import type { MihResumeGallery } from '../lib/mihResume';
 import { addHistoryEntry } from '../lib/userDataApi';
+import { FavoriteResultStar } from '../components/FavoriteResultStar';
 import '../theme/sg.css';
 
 type CategoryKey =
@@ -78,93 +79,154 @@ const CATEGORY_ORDER: CategoryKey[] = [
  * mapLabelToCategory('laptop computer')      // повертає 'tech'
  * mapLabelToCategory('unknown object')       // повертає 'other'
  */
-function mapLabelToCategory(classNames: string): CategoryKey {
-  const l = classNames
-    .replace(/\bn\d+\s*/g, '')
-    .replace(/_/g, ' ')
-    .toLowerCase()
-    .trim();
+/** Розбиває рядок на окремі слова для точного порівняння (без помилкових підрядкових збігів). */
+function words(s: string): string[] {
+  return s.split(/[\s,]+/).filter(Boolean);
+}
 
-  const people = [
-    'person', 'man', 'woman', 'boy', 'girl', 'people', 'face', 'bride', 'child', 'adult', 'soldier', 'athlete', 'diver'
-  ];
-  if (people.some((k) => l.includes(k))) return 'people';
+function hasWord(tokens: string[], keywords: string[]): boolean {
+  return keywords.some((k) => {
+    if (k.includes(' ')) return s_includes(tokens.join(' '), k);
+    return tokens.includes(k);
+  });
+}
 
-  const tech = [
-    'laptop', 'computer', 'screen', 'monitor', 'keyboard', 'phone', 'camera', 'television',
-    'tv', 'printer', 'mouse', 'modem', 'disk', 'projector', 'notebook', 'cellular',
-    'handset', 'radio', 'stethoscope', 'microscope', 'oscilloscope', 'watch', 'clock', 'lens', 'slot', 'atm'
-  ];
-  if (tech.some((k) => l.includes(k))) return 'tech';
+function s_includes(str: string, sub: string): boolean {
+  return str.includes(sub);
+}
 
-  const clothing = [
-    'jean', 'denim', 't-shirt', 'jersey', 'sweater', 'sweatshirt', 'hoodie', 'jacket', 'coat',
-    'suit', 'tie', 'bow tie', 'dress', 'skirt', 'kimono', 'cardigan', 'sock', 'shoe', 'sandal',
-    'boot', 'sneaker', 'hat', 'cap', 'helmet', 'gown'
-  ];
-  if (clothing.some((k) => l.includes(k))) return 'clothing';
+function mapLabelToCategory(topClass: string, fallbackClasses?: string): CategoryKey {
+  const normalize = (s: string) =>
+    s.replace(/\bn\d+\s*/g, '').replace(/_/g, ' ').toLowerCase().trim();
 
-  const interior = [
-    'kitchen', 'living room', 'bedroom', 'bathroom', 'dining room', 'studio', 'interior',
-    'wall', 'ceiling', 'floor', 'room', 'apartment', 'house', 'home theater', 'wardrobe',
-    'cabinetry', 'cupboard', 'closet', 'fireplace'
-  ];
-  if (interior.some((k) => l.includes(k))) return 'interior';
+  const checkTokens = (raw: string): CategoryKey => {
+    const l = normalize(raw);
+    const tok = words(l);
 
-  const animals = [
-    'cat', 'dog', 'puppy', 'kitten', 'animal', 'bird', 'horse', 'cow', 'sheep', 'zebra',
-    'giraffe', 'elephant', 'lion', 'tiger', 'bear', 'panda', 'wolf', 'fox', 'rabbit',
-    'hamster', 'squirrel', 'monkey', 'gorilla', 'chimp', 'poodle', 'retriever',
-    'terrier', 'tabby', 'siamese', 'persian', 'egyptian', 'jellyfish', 'goldfish',
-    'snail', 'turtle', 'lizard', 'snake', 'crocodile', 'dinosaur', 'lynx', 'cheetah', 'deer', 'pig', 'ox', 'bison', 'flamingo', 'penguin', 'swan', 'duck', 'parrot', 'eagle', 'owl'
-  ];
-  if (animals.some((k) => l.includes(k))) return 'animals';
+    // ── Посуд / кухонне приладдя (перевіряємо РАНІШЕ за одяг і транспорт) ──
+    const tableware = [
+      'plate', 'bowl', 'cup', 'mug', 'saucer', 'teapot', 'coffeepot', 'goblet',
+      'pitcher', 'ladle', 'spoon', 'fork', 'knife', 'dish', 'platter', 'skillet',
+      'wok', 'kettle', 'consomme', 'mortar', 'tray', 'casserole', 'colander',
+      'strainer', 'spatula', 'whisk', 'grater', 'corkscrew', 'can opener',
+      'measuring cup', 'mixing bowl', 'punch bowl', 'soup bowl', 'serving dish',
+      'chopsticks', 'saltshaker', 'pepper', 'vinegar'
+    ];
+    // "pot" і "pan" мають коротку форму — перевіряємо окремим словом
+    if (tok.includes('pot') || tok.includes('pan') || tok.includes('wok') ||
+        tok.includes('bottle') || tok.includes('wine') || tok.includes('beer') ||
+        tok.includes('glass') || hasWord(tok, tableware)) return 'tableware';
 
-  const furniture = [
-    'chair', 'table', 'sofa', 'couch', 'bed', 'desk', 'wardrobe', 'cabinet', 'shelf',
-    'dining table', 'studio couch', 'folding chair', 'barber chair', 'armchair', 'throne',
-    'bookshelf', 'file', 'filing cabinet', 'table lamp', 'floor lamp', 'wardrobe',
-    'chest', 'bureau', 'bookshelf', 'pillow', 'mattress', 'ottoman', 'footstool',
-    'refrigerator', 'stove', 'microwave', 'oven', 'bookcase', 'lamp', 'chiffonier', 'washbasin', 'toilet', 'bathtub', 'shower', 'counter', 'kitchen'
-  ];
-  if (furniture.some((k) => l.includes(k))) return 'furniture';
+    // ── Їжа / напої ──
+    const food = [
+      'pizza', 'burger', 'sandwich', 'apple', 'banana', 'cake', 'orange', 'lemon',
+      'grape', 'strawberry', 'pear', 'peach', 'pineapple', 'watermelon', 'broccoli',
+      'cabbage', 'carrot', 'potato', 'tomato', 'cucumber', 'lettuce', 'mushroom',
+      'coffee', 'espresso', 'milk', 'juice', 'donut', 'bagel', 'croissant',
+      'pretzel', 'soup', 'stew', 'salad', 'omelette', 'chocolate', 'candy',
+      'guacamole', 'burrito', 'cheeseburger', 'hotdog', 'spaghetti', 'waffle',
+      'mango', 'pomegranate', 'corn', 'artichoke', 'cauliflower', 'asparagus',
+      'fruit', 'bread', 'cheese', 'egg', 'taco', 'sushi', 'noodle', 'rice',
+      'meat', 'beef', 'pork', 'chicken', 'fish', 'shrimp', 'lobster', 'crab',
+      'ice cream', 'french fries', 'mashed potato', 'bell pepper', 'tea'
+    ];
+    if (hasWord(tok, food)) return 'food';
 
-  const nature = [
-    'tree', 'flower', 'mountain', 'beach', 'river', 'forest', 'lake', 'sea', 'ocean',
-    'cliff', 'valley', 'volcano', 'coral', 'leaf', 'branch', 'grass', 'bush', 'palm',
-    'sunflower', 'rose', 'daisy', 'tulip', 'orchid', 'dandelion', 'strawberry',
-    'mushroom', 'fern', 'willow', 'maple', 'oak', 'pine', 'snow', 'ice', 'waterfall'
-  ];
-  if (nature.some((k) => l.includes(k))) return 'nature';
+    // ── Люди ──
+    const people = [
+      'person', 'man', 'woman', 'boy', 'girl', 'people', 'face', 'bride',
+      'child', 'adult', 'soldier', 'athlete', 'diver', 'player', 'cowboy'
+    ];
+    if (hasWord(tok, people)) return 'people';
 
-  const transport = [
-    'car', 'bus', 'truck', 'bicycle', 'motorcycle', 'airplane', 'train', 'boat', 'ship',
-    'ambulance', 'fire engine', 'taxi', 'minivan', 'suv', 'sports car', 'limousine',
-    'pickup', 'tractor', 'forklift', 'gondola', 'lifeboat', 'canoe', 'yacht', 'jet',
-    'airship', 'balloon', 'helicopter', 'locomotive', 'streetcar', 'trolley', 'wagon', 'convertible', 'scooter', 'submarine'
-  ];
-  if (transport.some((k) => l.includes(k))) return 'transport';
+    // ── Техніка / електроніка ──
+    const tech = [
+      'laptop', 'computer', 'screen', 'monitor', 'keyboard', 'phone', 'camera',
+      'television', 'printer', 'modem', 'disk', 'projector', 'cellular',
+      'handset', 'radio', 'microscope', 'oscilloscope', 'clock', 'atm',
+      'remote control', 'television', 'vcr', 'ipod'
+    ];
+    if (tok.includes('tv') || tok.includes('watch') || tok.includes('lens') ||
+        hasWord(tok, tech)) return 'tech';
 
-  const tableware = [
-    'plate', 'bowl', 'cup', 'mug', 'saucer', 'teapot', 'coffeepot', 'wine', 'beer',
-    'bottle', 'goblet', 'glass', 'pitcher', 'ladle', 'spoon', 'fork', 'knife',
-    'dish', 'platter', 'pot', 'pan', 'skillet', 'wok', 'kettle', 'consomme'
-  ];
-  if (tableware.some((k) => l.includes(k))) return 'tableware';
+    // ── Одяг ──
+    const clothing = [
+      'jean', 'denim', 'jersey', 'sweater', 'sweatshirt', 'hoodie', 'jacket',
+      'kimono', 'cardigan', 'sandal', 'sneaker', 'gown', 'pajama', 'bikini',
+      'miniskirt', 'stole', 'sarong', 'poncho', 'cloak', 'apron'
+    ];
+    // короткі слова перевіряємо точно (окремим токеном)
+    if (tok.includes('coat') || tok.includes('suit') || tok.includes('tie') ||
+        tok.includes('skirt') || tok.includes('dress') || tok.includes('sock') ||
+        tok.includes('shoe') || tok.includes('boot') || tok.includes('hat') ||
+        tok.includes('cap') || tok.includes('helmet') || tok.includes('t-shirt') ||
+        tok.includes('bow') || hasWord(tok, clothing)) return 'clothing';
 
-  const food = [
-    'pizza', 'burger', 'sandwich', 'fruit', 'apple', 'banana', 'cake', 'orange', 'lemon',
-    'grape', 'strawberry', 'pear', 'peach', 'pineapple', 'watermelon', 'broccoli',
-    'cabbage', 'carrot', 'potato', 'tomato', 'cucumber', 'lettuce', 'mushroom',
-    'coffee', 'tea', 'milk', 'juice', 'donut', 'bagel', 'croissant',
-    'pretzel', 'soup', 'stew', 'salad', 'omelette', 'ice cream', 'chocolate', 'candy',
-    'espresso', 'mashed potato', 'grille', 'guacamole', 'burrito', 'cheeseburger', 'hotdog',
-    'french fries', 'carbonara', 'spaghetti', 'trifle', 'waffle', 'custard', 'mango',
-    'pomegranate', 'corn', 'artichoke', 'bell pepper', 'cauliflower', 'asparagus'
-  ];
-  if (food.some((k) => l.includes(k))) return 'food';
+    // ── Інтер'єр ──
+    const interior = [
+      'living room', 'bedroom', 'bathroom', 'dining room', 'home theater',
+      'interior', 'cabinetry', 'cupboard', 'closet', 'fireplace', 'wardrobe'
+    ];
+    if (tok.includes('room') || tok.includes('wall') || tok.includes('ceiling') ||
+        tok.includes('floor') || tok.includes('apartment') || tok.includes('house') ||
+        tok.includes('studio') || hasWord(tok, interior)) return 'interior';
 
-  return 'other';
+    // ── Тварини ──
+    const animals = [
+      'cat', 'dog', 'puppy', 'kitten', 'animal', 'bird', 'horse', 'cow', 'sheep',
+      'zebra', 'giraffe', 'elephant', 'lion', 'tiger', 'panda', 'wolf', 'fox',
+      'rabbit', 'hamster', 'squirrel', 'monkey', 'gorilla', 'chimp', 'poodle',
+      'retriever', 'terrier', 'tabby', 'siamese', 'persian', 'egyptian',
+      'jellyfish', 'goldfish', 'snail', 'turtle', 'lizard', 'snake', 'crocodile',
+      'lynx', 'cheetah', 'deer', 'pig', 'bison', 'flamingo', 'penguin', 'swan',
+      'duck', 'parrot', 'eagle', 'owl', 'bear', 'ox'
+    ];
+    if (hasWord(tok, animals)) return 'animals';
+
+    // ── Меблі ──
+    const furniture = [
+      'chair', 'sofa', 'couch', 'desk', 'shelf', 'studio couch', 'folding chair',
+      'barber chair', 'armchair', 'throne', 'bookshelf', 'filing cabinet',
+      'table lamp', 'floor lamp', 'bureau', 'pillow', 'mattress', 'ottoman',
+      'footstool', 'refrigerator', 'stove', 'microwave', 'oven', 'bookcase',
+      'lamp', 'chiffonier', 'washbasin', 'toilet', 'bathtub', 'shower', 'counter'
+    ];
+    if (tok.includes('table') || tok.includes('bed') || tok.includes('cabinet') ||
+        tok.includes('wardrobe') || tok.includes('chest') || tok.includes('kitchen') ||
+        hasWord(tok, furniture)) return 'furniture';
+
+    // ── Природа ──
+    const nature = [
+      'tree', 'flower', 'mountain', 'beach', 'river', 'forest', 'lake', 'ocean',
+      'cliff', 'valley', 'volcano', 'coral', 'leaf', 'branch', 'grass', 'bush',
+      'palm', 'sunflower', 'rose', 'daisy', 'tulip', 'orchid', 'dandelion',
+      'fern', 'willow', 'maple', 'oak', 'pine', 'snow', 'ice', 'waterfall',
+      'sea', 'sky', 'cloud', 'sand', 'rock', 'stone', 'mushroom', 'strawberry'
+    ];
+    if (hasWord(tok, nature)) return 'nature';
+
+    // ── Транспорт (після їжі/посуду, щоб уникнути wagon/gondola плутанини) ──
+    const transport = [
+      'bicycle', 'motorcycle', 'airplane', 'train', 'ambulance', 'fire engine',
+      'taxi', 'minivan', 'limousine', 'tractor', 'forklift', 'lifeboat',
+      'canoe', 'yacht', 'airship', 'helicopter', 'locomotive', 'streetcar',
+      'convertible', 'scooter', 'submarine', 'trolleybus', 'sports car',
+      'pickup truck', 'freight car', 'school bus', 'minibus'
+    ];
+    // короткі слова транспорту — точні токени
+    if (tok.includes('car') || tok.includes('bus') || tok.includes('truck') ||
+        tok.includes('boat') || tok.includes('ship') || tok.includes('jet') ||
+        tok.includes('suv') || tok.includes('balloon') || tok.includes('trolley') ||
+        hasWord(tok, transport)) return 'transport';
+
+    return 'other';
+  };
+
+  // Спочатку перевіряємо тільки топ-клас (найточніший результат моделі)
+  const primary = checkTokens(topClass);
+  if (primary !== 'other') return primary;
+  // Якщо не визначено — використовуємо резервні класи
+  return fallbackClasses ? checkTokens(fallbackClasses) : 'other';
 }
 
 /**
@@ -205,6 +267,7 @@ export function SmartGalleryPage() {
   const [isLoadingModel, setIsLoadingModel] = useState(false);
   const [isClassifying, setIsClassifying] = useState(false);
   const [analysisStarted, setAnalysisStarted] = useState(false);
+  const [sgResultSnapshot, setSgResultSnapshot] = useState<{ previewImage: string; resumePayload: string } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -238,7 +301,7 @@ export function SmartGalleryPage() {
       setIsLoadingModel(true);
       setStatus('Loading MobileNet v2 model...');
       try {
-        const loaded = await mobilenet.load();
+        const loaded = await mobilenet.load({ version: 2, alpha: 1.0 });
         if (!cancelled) {
           setModel(loaded);
           setStatus('Model ready');
@@ -288,6 +351,7 @@ export function SmartGalleryPage() {
     setActiveItemId(null);
     setAnalysisStarted(false);
     setStatus('Gallery is empty');
+    setSgResultSnapshot(null);
   };
 
   const removeItem = (id: string, e: React.MouseEvent) => {
@@ -302,7 +366,7 @@ export function SmartGalleryPage() {
   const ensureModel = async (): Promise<mobilenet.MobileNet> => {
     if (model) return model;
     setStatus('Loading MobileNet v2 model...');
-    const loaded = await mobilenet.load();
+    const loaded = await mobilenet.load({ version: 2, alpha: 1.0 });
     setModel(loaded);
     setStatus('Model ready');
     return loaded;
@@ -311,13 +375,6 @@ export function SmartGalleryPage() {
   const classifyAll = async () => {
     if (items.length === 0 || isClassifying) return;
     setAnalysisStarted(true);
-    try {
-      const key = "mih_analyses_count";
-      const cur = Number(localStorage.getItem(key) || "0");
-      localStorage.setItem(key, String(cur + 1));
-    } catch {
-      // intentionally empty
-    }
     setIsClassifying(true);
     const m = await ensureModel();
     setStatus('Classifying...');
@@ -337,8 +394,8 @@ export function SmartGalleryPage() {
         const getLabel = (p: { className?: string; name?: string }) =>
           (p && (p.className ?? (p as { name?: string }).name)) || '';
         const topClass = getLabel(predictions[0] ?? {});
-        const combined = predictions.map(getLabel).join(' ');
-        const category = mapLabelToCategory(topClass + ' ' + combined);
+        const fallback = predictions.slice(1, 3).map(getLabel).join(' ');
+        const category = mapLabelToCategory(topClass, fallback);
         updated.push({ ...item, predictions, category });
       } catch (e) {
         console.error(e);
@@ -364,10 +421,10 @@ export function SmartGalleryPage() {
         try {
           const thumb = await thumbnailFromImageUrl(updated[0].url, 320);
           const itemsSmall: MihResumeGallery['items'] = [];
-          for (const it of updated.slice(0, 6)) {
+          for (const it of updated) {
             try {
               const raw = await blobUrlToDataUrl(it.url);
-              const compressed = await thumbnailFromDataUrl(raw, 400);
+              const compressed = await thumbnailFromDataUrl(raw, 320);
               itemsSmall.push({
                 id: it.id,
                 fileName: it.fileName,
@@ -381,6 +438,7 @@ export function SmartGalleryPage() {
           }
           const payload: MihResumeGallery = { v: 1, module: 'gallery', items: itemsSmall };
           const s = JSON.stringify(payload);
+          setSgResultSnapshot({ previewImage: thumb ?? '', resumePayload: s });
           if (s.length < 1_450_000) {
             saveLastWorkbenchResume('/gallery', s);
             await addHistoryEntry({
@@ -396,6 +454,30 @@ export function SmartGalleryPage() {
         }
       })();
     }
+  };
+
+  /** Завантажує результати класифікації галереї у форматі JSON. */
+  const handleExportJson = () => {
+    const data = {
+      module: 'smart-gallery',
+      exportedAt: new Date().toISOString(),
+      totalImages: items.length,
+      images: items.map(img => ({
+        name: img.fileName,
+        category: img.category,
+        topPredictions: img.predictions.slice(0, 5).map(p => ({
+          className: p.className,
+          probability: p.probability
+        }))
+      }))
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gallery-result-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const selected = items.find((i) => i.id === activeItemId) ?? null;
@@ -415,21 +497,17 @@ export function SmartGalleryPage() {
     <div className="sg-layout">
       <header className="sg-header">
         <div className="sg-header-left">
-          <div className="sg-icon sg-icon--purple" aria-hidden>G</div>
-          <div>
-            <div className="sg-header-title">Smart Gallery</div>
-            <div className="sg-header-subtitle">Image classification · MobileNet v2</div>
-          </div>
+          <div className="sg-header-title">Smart Gallery</div>
         </div>
         <div className="sg-header-right">
-          <button
-            type="button"
-            className="sg-btn-clear"
-            onClick={clearAll}
-            disabled={items.length === 0}
-          >
-            🔄 Clear all
-          </button>
+          {user && hasAnyClassified && sgResultSnapshot && (
+            <FavoriteResultStar
+              path="/gallery"
+              title={`Галерея · ${items.length} зображ.`}
+              previewImage={sgResultSnapshot.previewImage}
+              resumePayload={sgResultSnapshot.resumePayload}
+            />
+          )}
         </div>
       </header>
 
@@ -450,7 +528,7 @@ export function SmartGalleryPage() {
 
           {items.length === 0 ? (
             <div className="sg-add-zone" role="button" tabIndex={0} onClick={openFilePicker} onKeyDown={(e) => e.key === 'Enter' && openFilePicker()}>
-              <span>Drop up to 20 images here or click to select</span>
+              <span>Click or drop an image</span>
             </div>
           ) : (
             <>
@@ -465,6 +543,19 @@ export function SmartGalleryPage() {
                 </button>
                 <button type="button" className="sg-btn-add" onClick={openFilePicker} disabled={isClassifying}>
                   ＋
+                </button>
+                {hasAnyClassified ? (
+                  <button type="button" className="secondary-button" onClick={handleExportJson}>
+                    ↓ Export JSON
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={clearAll}
+                  disabled={items.length === 0}
+                >
+                  Clear
                 </button>
                 <span className="sg-status" aria-live="polite">{status}</span>
               </div>

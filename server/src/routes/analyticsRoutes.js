@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import express from 'express';
-import { updateStore } from '../store.js';
+import { getDb } from '../db.js';
 import { logger } from '../logger.js';
 
 const router = Router();
 const jsonSmall = express.json({ limit: '48kb' });
 
 /**
- * Агрегована аналітика детекцій з клієнта (для звітів / моніторингу навантаження модуля).
+ * Агрегована аналітика детекцій з клієнта.
  */
 router.post('/detection', jsonSmall, (req, res) => {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
@@ -26,19 +26,14 @@ router.post('/detection', jsonSmall, (req, res) => {
     typeof body.source === 'string' ? body.source.slice(0, 80) : 'object-detection';
 
   try {
-    updateStore((s) => {
-      if (!s.detection_analytics) s.detection_analytics = { events: [] };
-      s.detection_analytics.events.push({
-        ts: new Date().toISOString(),
-        classCounts: safeCounts,
-        totalDetections,
-        source
-      });
-      const max = 800;
-      while (s.detection_analytics.events.length > max) {
-        s.detection_analytics.events.shift();
-      }
-    });
+    const db = getDb();
+    db.prepare(
+      'INSERT INTO detection_analytics (ts, class_counts, total_detections, source) VALUES (?, ?, ?, ?)'
+    ).run(new Date().toISOString(), JSON.stringify(safeCounts), totalDetections, source);
+
+    db.prepare(
+      'DELETE FROM detection_analytics WHERE id NOT IN (SELECT id FROM detection_analytics ORDER BY id DESC LIMIT 800)'
+    ).run();
   } catch (e) {
     logger.warn('analytics_detection_write_failed', { message: String(e) });
     return res.status(500).json({ ok: false, code: 'ANALYTICS_WRITE_FAILED' });

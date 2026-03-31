@@ -111,9 +111,6 @@ export function FavoritesPage() {
                   <Link to={to} state={state} className="archive-card-open" onClick={stash}>
                     <img src={getCardPreviewUrl(row)} alt="" className="archive-card-img" />
                   </Link>
-                  {row.kind === 'result' ? (
-                    <span className="fav-card-chip">Результат</span>
-                  ) : null}
                   <TrashIconButton
                     className="fav-card-trash"
                     ariaLabel="Прибрати з обраного"

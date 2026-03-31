@@ -16,37 +16,6 @@
   flex-direction: column;
 }
 
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 1.75rem;
-}
-
-.logo-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  background: conic-gradient(from 160deg, #22d3ee, #a78bfa, #34d399, #fcd34d, #22d3ee);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #020617;
-}
-
-.logo-text-main {
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.logo-text-sub {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
 
 .nav {
   display: flex;
@@ -216,20 +185,38 @@
   mix-blend-mode: screen;
 }
 
+.accent-ocr-bg {
+  border-color: rgba(34, 211, 238, 0.38);
+}
+.accent-gallery-bg {
+  border-color: rgba(167, 139, 250, 0.38);
+}
+.accent-detection-bg {
+  border-color: rgba(52, 211, 153, 0.38);
+}
+.accent-transcriber-bg {
+  border-color: rgba(252, 211, 77, 0.38);
+}
+
+.dash-card.accent-ocr-bg:hover        { border-color: rgba(34, 211, 238, 0.65); }
+.dash-card.accent-gallery-bg:hover     { border-color: rgba(167, 139, 250, 0.65); }
+.dash-card.accent-detection-bg:hover   { border-color: rgba(52, 211, 153, 0.65); }
+.dash-card.accent-transcriber-bg:hover { border-color: rgba(252, 211, 77, 0.65); }
+
 .accent-ocr-bg::before {
-  background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.4), transparent 60%);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.42) 0%, rgba(6, 182, 212, 0.18) 45%, transparent 70%);
 }
 
 .accent-gallery-bg::before {
-  background: linear-gradient(90deg, rgba(167, 139, 250, 0.4), rgba(139, 92, 246, 0.2));
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.42) 0%, rgba(139, 92, 246, 0.18) 45%, transparent 70%);
 }
 
 .accent-detection-bg::before {
-  background: linear-gradient(90deg, rgba(52, 211, 153, 0.45), rgba(16, 185, 129, 0.2));
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.45) 0%, rgba(16, 185, 129, 0.18) 45%, transparent 70%);
 }
 
 .accent-transcriber-bg::before {
-  background: linear-gradient(90deg, rgba(252, 211, 77, 0.5), rgba(245, 158, 11, 0.2));
+  background: linear-gradient(135deg, rgba(252, 211, 77, 0.5) 0%, rgba(245, 158, 11, 0.2) 45%, transparent 70%);
 }
 
 .dash-card:hover {
@@ -414,18 +401,52 @@
 }
 
 .panel-grid {
+  background: #111827;
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  padding: 1rem;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.98);
+  min-height: 480px;
   display: grid;
   grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.3fr);
-  gap: 1.4rem;
+  gap: 0;
   align-items: flex-start;
+  transition: grid-template-columns 0.42s ease;
+}
+
+.panel-grid > .panel {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.panel-grid > .panel:first-child {
+  padding-right: 1rem;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.panel-grid > .panel + .panel {
+  padding-left: 1rem;
+}
+
+.panel-grid--single > .panel:first-child,
+.det-no-results > .panel:first-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+.det-no-results {
+  grid-template-columns: 1fr;
 }
 
 .panel {
   background: #111827;
   border-radius: 16px;
   border: 1px solid var(--border-subtle);
-  padding: 1rem 1rem;
-  box-shadow: 0 20px 55px rgba(15, 23, 42, 0.95);
+  padding: 1rem;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.98);
 }
 
 .panel-header {
@@ -539,6 +560,9 @@
   border: 1px solid var(--border-subtle);
   padding: 1rem;
   box-shadow: 0 22px 60px rgba(15, 23, 42, 0.98);
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
 }
 
 .ocr-header {
@@ -584,10 +608,11 @@
 }
 
 .ocr-main {
+  flex: 1;
   display: grid;
   grid-template-columns: 0.3fr 0.7fr;
   gap: 1.1rem;
-  align-items: flex-start;
+  align-items: stretch;
   transition: grid-template-columns 0.42s ease;
 }
 
@@ -604,17 +629,20 @@
 .ocr-left {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
 }
 
 .ocr-image-card {
   position: relative;
   width: 100%;
+  flex: 1;
   border-radius: 18px;
   background: #0b0f19;
-  border: 1px solid rgba(55, 65, 81, 0.9);
+  border: 1px dashed rgba(55, 65, 81, 0.9);
   padding: 0.75rem;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
 }
 
 .ocr-image-inner {
@@ -622,7 +650,8 @@
   border-radius: 14px;
   overflow: hidden;
   background: #ffffff;
-  min-height: 220px;
+  min-height: 180px;
+  max-height: 400px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -630,12 +659,15 @@
 
 .ocr-image {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-height: 400px;
+  height: auto;
+  object-fit: contain;
+  display: block;
 }
 
 .ocr-laser {
   position: absolute;
+  top: 0;
   left: 0;
   right: 0;
   height: 2px;
@@ -654,6 +686,11 @@
 }
 
 .ocr-image-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   padding: 2rem 0.5rem;
   color: var(--text-secondary);
@@ -825,7 +862,6 @@
   }
 }
 
-/* Smart Gallery */
 .sg-layout {
   background: #111827;
   border-radius: 16px;
@@ -1200,7 +1236,6 @@
   }
 }
 
-/* OCR results slide-in/out (hide results panel until Run OCR) */
 .ocr-main {
   transition: grid-template-columns 0.42s ease;
 }
@@ -1258,16 +1293,10 @@
   from { transform: translateX(0); }
   to { transform: translateX(280%); }
 }
-/* Single-column panel grid (used when sentiment/results are hidden) */
-.panel-grid {
-  transition: grid-template-columns 0.42s ease;
-}
-
 .panel-grid--single {
   grid-template-columns: 1fr !important;
 }
 
-/* Auth & account UI */
 .app-header {
   display: flex;
   align-items: center;
@@ -1986,24 +2015,31 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 260px));
   gap: 1.1rem;
 }
 
 .archive-card {
-  border-radius: 0.95rem;
-  border: 1px solid rgba(55, 65, 81, 0.85);
-  background: linear-gradient(180deg, rgba(17, 24, 39, 0.98), rgba(15, 23, 42, 0.99));
+  border-radius: 1rem;
+  border: 1px solid rgba(55, 65, 81, 0.7);
+  background: #111827;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.archive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.32);
 }
 
 .archive-card-visual {
   position: relative;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10;
   background: #0f172a;
+  overflow: hidden;
 }
 
 .archive-card-open {
@@ -2088,11 +2124,12 @@
 }
 
 .archive-card-body {
-  padding: 0.75rem 0.85rem 0.9rem;
+  padding: 0.7rem 0.85rem 0.8rem;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.35rem;
   flex: 1;
+  background: inherit;
 }
 
 .archive-card-filename {
@@ -2101,13 +2138,16 @@
   border: none;
   background: none;
   text-align: left;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #f1f5f9;
+  color: #e2e8f0;
   line-height: 1.35;
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .archive-card-filename:hover {
@@ -2258,4 +2298,186 @@
   resize: vertical;
   font-family: inherit;
   line-height: 1.4;
+}
+
+/* ── Кнопка перемикача теми ───────────────────────────── */
+.app-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-ui);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+  flex-shrink: 0;
+}
+
+.app-theme-toggle:hover {
+  border-color: rgba(34, 211, 238, 0.55);
+  background: rgba(34, 211, 238, 0.08);
+  color: var(--text-primary);
+}
+
+/* ── Секція аналітики на дашборді ────────────────────── */
+.dash-analytics-section {
+  margin-top: 1.75rem;
+}
+
+.dash-analytics-title {
+  margin: 0 0 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+
+.dash-analytics-row {
+  display: flex;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.dash-analytics-login-prompt {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.dash-analytics-login-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.dash-analytics-login-prompt p {
+  margin: 0;
+}
+
+.dash-analytics-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 1rem 1.2rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.8);
+  min-width: 220px;
+}
+
+.dash-analytics-card--wide {
+  flex: 1;
+  min-width: 300px;
+}
+
+.dash-analytics-card-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+/* Донатна діаграма */
+.dash-chart-donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.dash-chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.dash-chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+}
+
+.dash-chart-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.dash-chart-legend-label {
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.dash-chart-legend-value {
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 20px;
+  text-align: right;
+}
+
+/* Анімація сегментів донатної діаграми */
+@keyframes donutDash {
+  from {
+    stroke-dashoffset: 10000;
+  }
+  to {
+    stroke-dashoffset: var(--dash-target, 0);
+  }
+}
+
+.dash-donut-segment {
+  animation: dash 1s ease forwards;
+}
+
+@keyframes dash {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Стовпчастий графік активності */
+.dash-chart-bars-wrap {
+  display: flex;
+  align-items: flex-end;
+  overflow: visible;
+}
+
+.dash-bar-rect {
+  transform-origin: bottom;
+  animation: barRise 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 0;
+}
+
+.dash-bar-rect:nth-child(1) { animation-delay: 0.05s; }
+.dash-bar-rect:nth-child(2) { animation-delay: 0.12s; }
+.dash-bar-rect:nth-child(3) { animation-delay: 0.19s; }
+.dash-bar-rect:nth-child(4) { animation-delay: 0.26s; }
+.dash-bar-rect:nth-child(5) { animation-delay: 0.33s; }
+.dash-bar-rect:nth-child(6) { animation-delay: 0.40s; }
+.dash-bar-rect:nth-child(7) { animation-delay: 0.47s; }
+
+@keyframes barRise {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
 }

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
-import { getStore, updateStore } from '../store.js';
+import { getDb } from '../db.js';
 import { authMiddleware } from '../auth.js';
 
 const router = Router();
@@ -11,39 +11,17 @@ const FAVORITES_LIMIT = 100;
 const MAX_FAV_PREVIEW = 1_200_000;
 const MAX_FAV_RESUME = 1_500_000;
 
-/**
- * @param {{ created_at: string; created_at_ms?: number }} row
- * @returns {number}
- */
-function createdAtMs(row) {
-  if (typeof row.created_at_ms === 'number' && Number.isFinite(row.created_at_ms)) {
-    return row.created_at_ms;
-  }
-  const ms = Date.parse(row.created_at);
-  return Number.isFinite(ms) ? ms : 0;
-}
-
-/**
- * @param {Array<{ user_id: string; created_at: string; created_at_ms?: number }>} rows
- * @param {string} userId
- * @param {number} limit
- */
-function newestByUser(rows, userId, limit) {
-  return rows
-    .filter((row) => row.user_id === userId)
-    .sort((a, b) => createdAtMs(b) - createdAtMs(a))
-    .slice(0, limit);
-}
-
 router.get('/', (req, res) => {
-  const store = getStore();
-  const rows = newestByUser(store.favorites, req.userId, FAVORITES_LIMIT);
+  const db = getDb();
+  const rows = db.prepare(
+    'SELECT * FROM favorites WHERE user_id = ? ORDER BY created_at_ms DESC LIMIT ?'
+  ).all(req.userId, FAVORITES_LIMIT);
 
   const items = rows.map((r) => ({
     id: r.id,
     title: r.title,
     path: r.path,
-    createdAtMs: createdAtMs(r),
+    createdAtMs: r.created_at_ms,
     kind: r.kind === 'result' ? 'result' : 'module',
     previewImage: r.preview_image || undefined,
     resumePayload: r.resume_payload || undefined
@@ -67,7 +45,7 @@ router.post('/', (req, res) => {
       ? String(req.body.resumePayload)
       : null;
   if (previewImage && previewImage.length > MAX_FAV_PREVIEW) {
-    return res.status(400).json({ error: 'Занадто велике прев\'ю', code: 'PAYLOAD_TOO_LARGE' });
+    return res.status(400).json({ error: "Занадто велике прев'ю", code: 'PAYLOAD_TOO_LARGE' });
   }
   if (resumePayload && resumePayload.length > MAX_FAV_RESUME) {
     return res.status(400).json({ error: 'Занадто великі дані', code: 'PAYLOAD_TOO_LARGE' });
@@ -75,37 +53,23 @@ router.post('/', (req, res) => {
 
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
-  const createdAtMsVal = Date.now();
+  const createdAtMs = Date.now();
 
-  updateStore((s) => {
-    s.favorites.push({
-      id,
-      user_id: req.userId,
-      title,
-      path: pathVal,
-      kind,
-      preview_image: previewImage,
-      resume_payload: resumePayload,
-      created_at: createdAt,
-      created_at_ms: createdAtMsVal
-    });
-  });
+  const db = getDb();
+  db.prepare(
+    'INSERT INTO favorites (id, user_id, title, path, kind, preview_image, resume_payload, created_at, created_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(id, req.userId, title, pathVal, kind, previewImage, resumePayload, createdAt, createdAtMs);
 
   res.status(201).json({ ok: true, id });
 });
 
 router.delete('/:id', (req, res) => {
   const id = String(req.params.id || '');
-  const store = getStore();
-  const idx = store.favorites.findIndex((f) => f.id === id && f.user_id === req.userId);
-  if (idx === -1) {
+  const db = getDb();
+  const result = db.prepare('DELETE FROM favorites WHERE id = ? AND user_id = ?').run(id, req.userId);
+  if (result.changes === 0) {
     return res.status(404).json({ error: 'Не знайдено', code: 'NOT_FOUND' });
   }
-
-  updateStore((s) => {
-    s.favorites.splice(idx, 1);
-  });
-
   res.json({ ok: true });
 });
 

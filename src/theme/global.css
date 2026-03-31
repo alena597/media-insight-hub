@@ -15,6 +15,395 @@
   --tonality-neutral: #6b7280;
 }
 
+html {
+  background-color: var(--bg-root);
+  color: var(--text-primary);
+}
+
+/* =====================================================================
+   СВІТЛА ТЕМА — повний набір overrides для hardcoded dark кольорів
+   ===================================================================== */
+html.theme-light {
+  color-scheme: light;
+  --bg-root: #f1f5f9;
+  --bg-panel: #ffffff;
+  --bg-ui: #f8fafc;
+  --border-subtle: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+}
+
+html.theme-light body {
+  background-color: #f1f5f9;
+}
+
+/* Основна сітка */
+html.theme-light .app-root {
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.08), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(167, 139, 250, 0.10), transparent 55%),
+    #f1f5f9;
+}
+
+/* Бічна панель */
+html.theme-light .sidebar {
+  background: #ffffff;
+  border-right-color: #e2e8f0;
+}
+
+html.theme-light .sidebar-footer {
+  border-top-color: #e2e8f0;
+}
+
+/* Хедер */
+html.theme-light .app-header {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(14px);
+  border-bottom-color: #e2e8f0;
+}
+
+html.theme-light .app-header-btn:hover {
+  background: #f1f5f9;
+  border-color: rgba(34, 211, 238, 0.45);
+}
+
+/* Метрики дашборду */
+html.theme-light .dash-metric-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+
+/* Картки модулів */
+html.theme-light .dash-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.07);
+}
+
+html.theme-light .dash-card:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  border-color: #cbd5e1;
+}
+
+/* Акцентні рамки карток у світлій темі */
+html.theme-light .accent-ocr-bg        { border-color: rgba(6, 182, 212, 0.32); }
+html.theme-light .accent-gallery-bg    { border-color: rgba(139, 92, 246, 0.32); }
+html.theme-light .accent-detection-bg  { border-color: rgba(16, 185, 129, 0.32); }
+html.theme-light .accent-transcriber-bg { border-color: rgba(245, 158, 11, 0.38); }
+
+html.theme-light .dash-card.accent-ocr-bg:hover        { border-color: rgba(6, 182, 212, 0.55); box-shadow: 0 8px 24px rgba(6, 182, 212, 0.12); }
+html.theme-light .dash-card.accent-gallery-bg:hover    { border-color: rgba(139, 92, 246, 0.55); box-shadow: 0 8px 24px rgba(139, 92, 246, 0.12); }
+html.theme-light .dash-card.accent-detection-bg:hover  { border-color: rgba(16, 185, 129, 0.55); box-shadow: 0 8px 24px rgba(16, 185, 129, 0.12); }
+html.theme-light .dash-card.accent-transcriber-bg:hover { border-color: rgba(245, 158, 11, 0.55); box-shadow: 0 8px 24px rgba(245, 158, 11, 0.12); }
+
+/* Градієнти карток у світлій темі */
+html.theme-light .dash-card::before {
+  mix-blend-mode: normal;
+  opacity: 1;
+}
+html.theme-light .accent-ocr-bg::before {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.13) 0%, rgba(99, 102, 241, 0.06) 45%, transparent 70%);
+}
+html.theme-light .accent-gallery-bg::before {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.13) 0%, rgba(236, 72, 153, 0.06) 45%, transparent 70%);
+}
+html.theme-light .accent-detection-bg::before {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.13) 0%, rgba(6, 182, 212, 0.06) 45%, transparent 70%);
+}
+html.theme-light .accent-transcriber-bg::before {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.06) 45%, transparent 70%);
+}
+
+html.theme-light .dash-card-tag {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+html.theme-light .dash-card-icon {
+  background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.12));
+}
+
+html.theme-light .dash-card-fav {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(148, 163, 184, 0.55);
+  color: #475569;
+}
+
+html.theme-light .dash-card-fav:hover {
+  background: #f8fafc;
+}
+
+/* Аналітичні картки */
+html.theme-light .dash-analytics-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+
+/* Панелі модулів — зовнішній контейнер */
+html.theme-light .panel-grid {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+}
+
+/* Detection: зелений акцент */
+html.theme-light .det-has-results,
+html.theme-light .det-no-results {
+  background: linear-gradient(155deg, rgba(16, 185, 129, 0.06) 0%, #ffffff 38%);
+  border-color: rgba(16, 185, 129, 0.22);
+}
+
+/* Transcriber: бурштиновий акцент */
+html.theme-light .tr-panel-grid {
+  background: linear-gradient(155deg, rgba(245, 158, 11, 0.06) 0%, #ffffff 38%);
+  border-color: rgba(245, 158, 11, 0.22);
+}
+
+/* Роздільник між секціями у світлій темі */
+html.theme-light .panel-grid > .panel:first-child {
+  border-right-color: #e2e8f0;
+}
+
+/* Кнопки */
+html.theme-light .secondary-button {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+html.theme-light .secondary-button:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+html.theme-light .badge,
+html.theme-light .label-pill {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
+/* Зони drag & drop */
+html.theme-light .file-drop-zone {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+/* AI лог */
+html.theme-light .ai-log {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+/* Зірка обраного */
+html.theme-light .mih-fav-star-btn {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(148, 163, 184, 0.55);
+  color: #475569;
+}
+
+html.theme-light .mih-fav-star-btn:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+/* Сторінка авторизації */
+html.theme-light .auth-page {
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.06), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(167, 139, 250, 0.10), transparent 55%),
+    #f1f5f9;
+}
+
+/* Навігація */
+html.theme-light .nav-link {
+  color: #64748b;
+}
+
+html.theme-light .nav-link:hover {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #0f172a;
+}
+
+html.theme-light .nav-link.active {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.12), rgba(167, 139, 250, 0.14));
+  border-color: rgba(34, 211, 238, 0.5);
+  color: #0f172a;
+}
+
+/* ── Іконки карток  ── */
+html.theme-light .dash-card-icon {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(167, 139, 250, 0.15));
+  color: #0e7490;
+  border: 1px solid rgba(34, 211, 238, 0.25);
+}
+
+/* ── Smart Gallery ──────────────────────────────────────────────────── */
+html.theme-light .sg-layout {
+  background: linear-gradient(155deg, rgba(139, 92, 246, 0.06) 0%, #ffffff 38%);
+  border-color: rgba(139, 92, 246, 0.22);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+}
+html.theme-light .sg-header-title { color: #0f172a; }
+html.theme-light .sg-icon { color: #0f172a; }
+html.theme-light .sg-btn-clear {
+  background: #f8fafc; border-color: #e2e8f0; color: #64748b;
+}
+html.theme-light .sg-btn-clear:hover:not(:disabled) {
+  background: #f1f5f9; color: #0f172a;
+}
+html.theme-light .sg-add-zone {
+  background: transparent;
+  border: 1.5px dashed #cbd5e1;
+  color: #64748b;
+}
+html.theme-light .sg-sidebar-title { color: #0f172a; }
+html.theme-light .sg-sidebar-filename { color: #64748b; }
+html.theme-light .sg-sidebar-badge {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.35);
+  color: #6d28d9;
+}
+html.theme-light .sg-sidebar-heading { color: #64748b; }
+html.theme-light .sg-pred-label { color: #0f172a; }
+html.theme-light .sg-pred-value { color: #64748b; }
+html.theme-light .sg-pred-bar-wrap { background: #e2e8f0; }
+html.theme-light .sg-section-name { color: #7c3aed; }
+html.theme-light .sg-section-count { color: #64748b; }
+html.theme-light .sg-sidebar-empty { color: #64748b; }
+html.theme-light .sg-sidebar-preview { background: #f1f5f9; }
+html.theme-light .sg-main { border-right-color: #e2e8f0; }
+html.theme-light .sg-card { background: #f8fafc; }
+html.theme-light .sg-status { color: #64748b; }
+html.theme-light .file-drop-zone {
+  background: radial-gradient(circle at top left, rgba(226, 232, 240, 0.6), rgba(241, 245, 249, 0.9));
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+
+/* ── OCR layout ─────────────────────────────────────────────────────── */
+html.theme-light .ocr-layout {
+  background: linear-gradient(155deg, rgba(6, 182, 212, 0.06) 0%, #ffffff 38%);
+  border-color: rgba(6, 182, 212, 0.22);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+}
+html.theme-light .ocr-image-card {
+  background: transparent;
+  border: 1.5px dashed #cbd5e1;
+  box-shadow: none;
+}
+html.theme-light .ocr-clear-btn {
+  background: #f8fafc; border-color: #e2e8f0; color: #64748b;
+}
+html.theme-light .ocr-right-loading { background: rgba(248, 250, 252, 0.9); }
+html.theme-light .ocr-right { border-left-color: #e2e8f0; }
+html.theme-light .ocr-text-box { background: #f8fafc; border-color: #e2e8f0; color: #0f172a; }
+html.theme-light .lang-switch { background: #f1f5f9; border-color: #e2e8f0; }
+html.theme-light .lang-chip {
+  background: #f8fafc; border-color: #e2e8f0; color: #475569;
+}
+html.theme-light .lang-chip--active {
+  background: rgba(34, 211, 238, 0.1); border-color: rgba(34, 211, 238, 0.5); color: #0e7490;
+}
+
+/* ── Object Detection ──────────────────────────────────────────────── */
+html.theme-light .det-media { background: #e8edf2; }
+html.theme-light .det-empty-title { color: #0f172a; }
+html.theme-light .det-empty-sub { color: #64748b; }
+html.theme-light .det-list-empty {
+  background: #f8fafc; border-color: #e2e8f0; color: #475569;
+}
+html.theme-light .det-results-panel .det-stats-block {
+  background: #f8fafc; border-color: #e2e8f0;
+}
+html.theme-light .det-stats-title { color: #64748b; }
+html.theme-light .det-stat-label { color: #0f172a; }
+html.theme-light .det-stat-count { color: #475569; }
+html.theme-light .det-item {
+  background: #f8fafc; border-color: #e2e8f0;
+}
+html.theme-light .det-item--active {
+  border-color: rgba(16, 185, 129, 0.45);
+}
+html.theme-light .det-chip {
+  background: rgba(241, 245, 249, 0.9); border-color: #cbd5e1; color: #0f172a;
+}
+html.theme-light .det-score { color: #64748b; }
+html.theme-light .det-bar { background: #e2e8f0; }
+html.theme-light .det-tab--active,
+html.theme-light .tr-tab--active {
+  color: #0f172a !important;
+}
+html.theme-light .det-stage-loading { background: rgba(241, 245, 249, 0.7); }
+html.theme-light .det-hint { color: #94a3b8; }
+
+/* ── Media Transcriber ──────────────────────────────────────────────── */
+html.theme-light .tr-transcript-box,
+html.theme-light .tr-empty,
+html.theme-light .tr-kpi {
+  background: #f8fafc; border-color: #e2e8f0;
+}
+html.theme-light .tr-seg,
+html.theme-light .tr-sentence {
+  background: #f8fafc; border-color: #e2e8f0;
+}
+html.theme-light .tr-textarea {
+  background: #f8fafc; border-color: #e2e8f0; color: #0f172a;
+}
+html.theme-light .tr-lang {
+  background: #f8fafc; border-color: #e2e8f0;
+}
+html.theme-light .tr-select { color: #0f172a; }
+html.theme-light .tr-bar { background: #e2e8f0; }
+html.theme-light .tr-transcript-final,
+html.theme-light .tr-seg-text,
+html.theme-light .tr-sentence-text { color: #0f172a; }
+html.theme-light .tr-pill { background: rgba(241, 245, 249, 0.8); }
+
+/* ── History (Archive) ──────────────────────────────────────────────── */
+html.theme-light .archive-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+}
+html.theme-light .archive-card-visual { background: #f1f5f9; }
+html.theme-light .archive-card-body { background: #ffffff; }
+html.theme-light .archive-card-filename { color: #0f172a; }
+html.theme-light .archive-card-filename:hover { color: #0e7490; }
+html.theme-light .archive-search {
+  background: #ffffff; border-color: #e2e8f0; color: #0f172a;
+}
+html.theme-light .archive-filter-btn {
+  background: #ffffff; border-color: #e2e8f0; color: #64748b;
+}
+html.theme-light .archive-filter-btn:hover { background: #f1f5f9; }
+html.theme-light .archive-filter-btn--active {
+  background: #f0f9ff; border-color: rgba(34, 211, 238, 0.5); color: #0e7490;
+}
+html.theme-light .mih-trash-icon-btn { background: rgba(255, 255, 255, 0.92); }
+
+/* ── Favorites ──────────────────────────────────────────────────────── */
+html.theme-light .fav-card-visual { background: #f1f5f9; }
+html.theme-light .fav-card-placeholder {
+  background: linear-gradient(135deg, rgba(241, 245, 249, 0.9), rgba(226, 232, 240, 0.95));
+}
+html.theme-light .fav-card-title { color: #0f172a; }
+html.theme-light .fav-card-title:hover { color: #0e7490; }
+html.theme-light .fav-card-chip {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(180, 83, 9, 0.35);
+  color: #b45309;
+}
+
+/* ── Спільні елементи з hardcoded кольором ───────────────────────────── */
+html.theme-light .lang-chip { background: #f8fafc; border-color: #e2e8f0; color: #475569; }
+html.theme-light .det-zone { background: #f8fafc; }
+html.theme-light .archive-hero .archive-title { color: #0f172a; }
+html.theme-light .archive-hero .archive-subtitle { color: #64748b; }
+
 *,
 *::before,
 *::after {
