@@ -1,0 +1,29 @@
+# Перевірка коду при push/PR (CI) — збірка фронтенду та статичний аналіз.
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Lint and typecheck
+        run: npm run check
+
+      - name: Production build
+        run: npm run build
