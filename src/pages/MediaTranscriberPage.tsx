@@ -353,6 +353,11 @@ const WAVEFORM_DURS = Array.from({ length: WAVEFORM_BARS }, (_, i) =>
   `${0.42 + ((i * 11 + 5) % 17) / 30}s`
 );
 
+/**
+ * Анімований візуалізатор хвиль під час запису.
+ *
+ * @returns Рядок анімованих смужок.
+ */
 function WaveformBars() {
   return (
     <div className="tr-waveform">
@@ -369,6 +374,12 @@ function WaveformBars() {
   );
 }
 
+/**
+ * Повертає текстову мітку для тональності.
+ *
+ * @param s - Значення тональності.
+ * @returns Рядок «Positive», «Negative» або «Neutral».
+ */
 function sentimentLabel(s: Sentiment) {
   if (s === "positive") return "Positive";
   if (s === "negative") return "Negative";

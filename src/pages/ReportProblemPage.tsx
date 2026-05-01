@@ -3,6 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { apiJson } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 
+/**
+ * Сторінка для надсилання повідомлень про проблеми.
+ *
+ * @returns Форма звіту про проблему.
+ */
 export function ReportProblemPage() {
   const [params] = useSearchParams();
   const prefilledClientRef = params.get('clientRef')?.trim() || '';

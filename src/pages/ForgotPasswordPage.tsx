@@ -2,6 +2,11 @@ import { FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiJson } from '../lib/api';
 
+/**
+ * Сторінка відновлення паролю — надсилає посилання на email.
+ *
+ * @returns Форма введення email для скидання паролю.
+ */
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);

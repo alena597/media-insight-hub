@@ -2,6 +2,11 @@ import { FormEvent, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { apiJson } from '../lib/api';
 
+/**
+ * Сторінка встановлення нового паролю за токеном з email.
+ *
+ * @returns Форма введення нового паролю.
+ */
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
