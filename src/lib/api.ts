@@ -87,12 +87,12 @@ export function supportRefLine(err: ApiError): string | null {
   }
   const parts: string[] = [];
   if (err.errorId) {
-    parts.push(`інцидент: ${err.errorId}`);
+    parts.push(`incident: ${err.errorId}`);
   }
   if (err.requestId) {
-    parts.push(`запит: ${err.requestId}`);
+    parts.push(`request: ${err.requestId}`);
   }
-  return `Код для підтримки: ${parts.join('; ')}.`;
+  return `Support code: ${parts.join('; ')}.`;
 }
 
 /**
@@ -141,7 +141,7 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   const headerRid = res.headers.get('X-Request-Id')?.trim() || undefined;
   const data = (await res.json().catch(() => ({}))) as T & JsonErrorBody;
   if (!res.ok) {
-    const msg = typeof data.error === 'string' ? data.error : 'Помилка запиту';
+    const msg = typeof data.error === 'string' ? data.error : 'Request failed';
     const code = typeof data.code === 'string' ? data.code : 'UNKNOWN';
     const bodyRid = typeof data.requestId === 'string' ? data.requestId : undefined;
     const errorId = typeof data.errorId === 'string' ? data.errorId : undefined;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { addFavorite, fetchFavorites, removeFavorite } from '../lib/userDataApi';
 
@@ -7,7 +7,7 @@ export type FavoriteResultStarProps = {
   path: string;
   /** Заголовок у списку обраного. */
   title: string;
-  /** JPEG data URL прев’ю. */
+  /** JPEG data URL прев'ю. */
   previewImage: string;
   /** JSON стану для відновлення. */
   resumePayload: string;
@@ -19,7 +19,7 @@ export type FavoriteResultStarProps = {
  * @param props - Властивості компонента.
  * @param props.path - Маршрут модуля.
  * @param props.title - Заголовок у обраному.
- * @param props.previewImage - Data URL прев’ю.
+ * @param props.previewImage - Data URL прев'ю.
  * @param props.resumePayload - Серіалізований стан.
  * @returns Кнопка-зірка або null без авторизації.
  */
@@ -82,7 +82,7 @@ export function FavoriteResultStar({ path, title, previewImage, resumePayload }:
       type="button"
       className={`mih-fav-star-btn ${filled ? 'mih-fav-star-btn--filled' : 'mih-fav-star-btn--outline'}`}
       disabled={busy}
-      aria-label={filled ? 'Прибрати з обраного' : 'Додати результат в обране'}
+      aria-label={filled ? 'Remove from favourites' : 'Save result to favourites'}
       onClick={() => void toggle()}
     >
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">

@@ -1,4 +1,4 @@
-import { apiFetch, apiJson } from './api';
+﻿import { apiFetch, apiJson } from './api';
 import { getUserIdFromToken } from './jwtUser';
 import {
   appendPendingFavorite,
@@ -16,14 +16,14 @@ import type { FavoriteItem, FavoriteKind, HistoryEntry, HistoryKind } from './us
 export type { FavoriteItem, FavoriteKind, HistoryEntry, HistoryKind };
 
 /**
- * Додає запис історії (потрібен збережений JWT).
- * При невдачі сервера запис кладеться в localStorage (черга), щоб прев’ю не губились.
+ * Додає запис історії.
+ * При невдачі сервера запис кладеться в localStorage (черга), щоб прев'ю не губились.
  *
  * @param entry - Поля запису.
  * @param entry.kind - Тип події.
  * @param entry.label - Підпис.
  * @param entry.path - Маршрут.
- * @param entry.previewImage - Data URL прев’ю.
+ * @param entry.previewImage - Data URL прев'ю.
  * @param entry.resumePayload - JSON для відновлення.
  */
 export async function addHistoryEntry(entry: {
@@ -113,7 +113,7 @@ export async function clearHistory(): Promise<void> {
  * @param item.title - Заголовок.
  * @param item.path - Шлях.
  * @param item.kind - Тип.
- * @param item.previewImage - Прев’ю.
+ * @param item.previewImage - Прев'ю.
  * @param item.resumePayload - Стан відновлення.
  * @returns id на сервері або `local-…` у черзі.
  */
@@ -169,7 +169,7 @@ export async function removeFavorite(favoriteId: string): Promise<void> {
   });
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
-    throw new Error(data.error ?? 'Не вдалося видалити');
+    throw new Error(data.error ?? 'Failed to delete');
   }
 }
 

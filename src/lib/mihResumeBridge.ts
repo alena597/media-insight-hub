@@ -1,4 +1,4 @@
-import type { MihResume } from './mihResume';
+﻿import type { MihResume } from './mihResume';
 
 const STORAGE_KEY = 'mih_resume_bridge_v1';
 
@@ -6,7 +6,7 @@ const STORAGE_KEY = 'mih_resume_bridge_v1';
  * Зберігає стан відновлення в sessionStorage перед переходом (запас, якщо location.state загубиться).
  *
  * @param path - Маршрут модуля.
- * @param resume - Об’єкт MihResume.
+ * @param resume - Об'єкт MihResume.
  */
 export function stashResumeForPath(path: string, resume: MihResume): void {
   try {

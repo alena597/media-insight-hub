@@ -73,9 +73,13 @@
   color: var(--text-secondary);
 }
 
-.det-zone {
-  padding: 0.75rem;
-  cursor: pointer;
+.det-scene-tag {
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+  color: var(--text-primary, #e5e7eb);
 }
 
 .det-stage {
@@ -97,6 +101,14 @@
   background: #020617;
 }
 
+.det-media--webcam {
+  width: min(92%, 980px);
+  aspect-ratio: 16 / 9;
+  min-height: clamp(220px, 42vh, 520px);
+  object-fit: cover;
+  margin: 0 auto;
+}
+
 .det-overlay {
   position: absolute;
   top: 0;
@@ -110,6 +122,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: clamp(240px, 42vh, 520px);
+  flex: 1;
   gap: 0.35rem;
   padding: 2.25rem 0;
 }
@@ -117,6 +133,16 @@
 .det-empty-title {
   font-size: 0.95rem;
   color: #e5e7eb;
+}
+
+.det-empty-title.module-upload-empty-text {
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.det-empty-sub.module-upload-empty-text {
+  font-size: 0.9rem;
+  color: #94a3b8;
 }
 
 .det-empty-sub {
@@ -246,6 +272,52 @@
 
 .det-stage {
   transition: max-height 0.42s ease;
+}
+
+.det-scan-sweep {
+  position: absolute;
+  top: 0;
+  left: -55%;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(52, 211, 153, 0.18),
+    rgba(52, 211, 153, 0.45),
+    rgba(52, 211, 153, 0.18),
+    transparent
+  );
+  animation: detScanSweep 1.4s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+  pointer-events: none;
+  z-index: 6;
+  border-radius: 12px;
+}
+
+@keyframes detScanSweep {
+  0%   { left: -55%; opacity: 0; }
+  8%   { opacity: 1; }
+  90%  { opacity: 0.9; }
+  100% { left: 110%; opacity: 0; }
+}
+
+.det-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.38);
+  color: #34d399;
+  font-size: 0.78rem;
+  font-weight: 600;
+  animation: detCountPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes detCountPop {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
 }
 
 .det-stage--full {
@@ -389,4 +461,142 @@
 @keyframes det-loading-slide {
   0% { left: -40%; }
   100% { left: 100%; }
+}
+
+.det-limit-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.4rem 0;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: #fbbf24;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.det-limit-warning__close {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #fbbf24;
+  font-size: 0.85rem;
+  opacity: 0.7;
+  padding: 0 0.15rem;
+}
+
+.det-limit-warning__close:hover { opacity: 1; }
+
+.det-scan-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  pointer-events: none;
+  z-index: 4;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.det-scan-cell {
+  border: 0.5px solid rgba(52, 211, 153, 0.12);
+  animation: detCellPulse 2s ease-in-out infinite;
+}
+
+.det-scan-cell:nth-child(6n+1) { animation-delay: 0s;    animation-duration: 2.0s; }
+.det-scan-cell:nth-child(6n+2) { animation-delay: 0.70s; animation-duration: 1.7s; }
+.det-scan-cell:nth-child(6n+3) { animation-delay: 0.35s; animation-duration: 2.3s; }
+.det-scan-cell:nth-child(6n+4) { animation-delay: 1.05s; animation-duration: 1.9s; }
+.det-scan-cell:nth-child(6n+5) { animation-delay: 0.20s; animation-duration: 2.1s; }
+.det-scan-cell:nth-child(6n+6) { animation-delay: 0.90s; animation-duration: 1.6s; }
+
+@keyframes detCellPulse {
+  0%, 80%, 100% { background: transparent; border-color: rgba(52, 211, 153, 0.10); }
+  40% {
+    background: rgba(52, 211, 153, 0.09);
+    border-color: rgba(52, 211, 153, 0.40);
+    box-shadow: inset 0 0 8px rgba(52, 211, 153, 0.15);
+  }
+}
+
+@keyframes detItemSlide {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.det-item {
+  animation: detItemSlide 0.38s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+
+.det-list .det-item:nth-child(1)  { animation-delay: 0.04s; }
+.det-list .det-item:nth-child(2)  { animation-delay: 0.10s; }
+.det-list .det-item:nth-child(3)  { animation-delay: 0.16s; }
+.det-list .det-item:nth-child(4)  { animation-delay: 0.22s; }
+.det-list .det-item:nth-child(5)  { animation-delay: 0.28s; }
+.det-list .det-item:nth-child(6)  { animation-delay: 0.34s; }
+.det-list .det-item:nth-child(7)  { animation-delay: 0.40s; }
+.det-list .det-item:nth-child(8)  { animation-delay: 0.46s; }
+.det-list .det-item:nth-child(9)  { animation-delay: 0.52s; }
+.det-list .det-item:nth-child(10) { animation-delay: 0.58s; }
+
+@keyframes detBarFill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+.det-item .det-bar-fill {
+  transform-origin: left;
+  animation: detBarFill 0.50s cubic-bezier(0.34, 1.3, 0.64, 1) both;
+}
+
+.det-list .det-item:nth-child(1)  .det-bar-fill { animation-delay: 0.14s; }
+.det-list .det-item:nth-child(2)  .det-bar-fill { animation-delay: 0.20s; }
+.det-list .det-item:nth-child(3)  .det-bar-fill { animation-delay: 0.26s; }
+.det-list .det-item:nth-child(4)  .det-bar-fill { animation-delay: 0.32s; }
+.det-list .det-item:nth-child(5)  .det-bar-fill { animation-delay: 0.38s; }
+.det-list .det-item:nth-child(6)  .det-bar-fill { animation-delay: 0.44s; }
+.det-list .det-item:nth-child(7)  .det-bar-fill { animation-delay: 0.50s; }
+.det-list .det-item:nth-child(8)  .det-bar-fill { animation-delay: 0.56s; }
+.det-list .det-item:nth-child(9)  .det-bar-fill { animation-delay: 0.62s; }
+.det-list .det-item:nth-child(10) .det-bar-fill { animation-delay: 0.68s; }
+
+@media (max-width: 768px) {
+  .det-toolbar {
+    gap: 0.45rem 0.75rem;
+  }
+
+  .det-controls {
+    gap: 0.45rem;
+  }
+
+  .det-media--webcam {
+    min-height: clamp(180px, 35vw, 320px);
+  }
+}
+
+@media (max-width: 480px) {
+  .det-toolbar {
+    gap: 0.35rem 0.55rem;
+  }
+
+  .det-controls {
+    gap: 0.3rem;
+  }
+
+  .det-hint {
+    font-size: 0.68rem;
+  }
+
+  .det-status {
+    font-size: 0.72rem;
+  }
+
+  .det-mode-tabs {
+    flex-wrap: wrap;
+  }
 }

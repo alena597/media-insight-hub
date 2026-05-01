@@ -1,15 +1,15 @@
 export const ROUTE_LABELS: Readonly<Record<string, string>> = {
-  '/': 'Головна',
+  '/': 'Home',
   '/dashboard': 'Dashboard',
   '/ocr': 'OCR',
   '/gallery': 'Smart Gallery',
   '/detection': 'Object Detection',
   '/transcriber': 'Media Transcriber',
-  '/profile': 'Профіль',
-  '/history': 'Історія',
-  '/favorites': 'Обране',
-  '/login': 'Вхід',
-  '/register': 'Реєстрація'
+  '/profile': 'Profile',
+  '/history': 'History',
+  '/favorites': 'Favourites',
+  '/login': 'Login',
+  '/register': 'Register'
 };
 
 /**

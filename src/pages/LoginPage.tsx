@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+﻿import { FormEvent, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ApiError } from '../lib/api';
@@ -24,7 +24,7 @@ export function LoginPage() {
     e.preventDefault();
     setError(null);
     if (!authReady) {
-      setError(configMessage ?? 'API недоступне');
+      setError(configMessage ?? 'API unavailable');
       return;
     }
     setSubmitting(true);
@@ -35,7 +35,7 @@ export function LoginPage() {
       if (err instanceof ApiError) {
         setError(messageForAuthFormError(err));
       } else {
-        setError('Не вдалося з’єднатися з сервером.');
+        setError('Could not connect to the server.');
       }
     } finally {
       setSubmitting(false);
@@ -45,8 +45,8 @@ export function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1 className="auth-title">Вхід</h1>
-        <p className="auth-sub">Увійдіть, щоб бачити профіль, історію та обране.</p>
+        <h1 className="auth-title">Log in</h1>
+        <p className="auth-sub">Sign in to access your profile, history and favourites.</p>
         {configMessage ? <p className="auth-banner">{configMessage}</p> : null}
         <form className="auth-form" onSubmit={onSubmit}>
           <label className="auth-label">
@@ -61,7 +61,7 @@ export function LoginPage() {
             />
           </label>
           <label className="auth-label">
-            Пароль
+            Password
             <input
               className="auth-input"
               type="password"
@@ -73,13 +73,15 @@ export function LoginPage() {
           </label>
           {error ? <p className="auth-error">{error}</p> : null}
           <button className="auth-submit" type="submit" disabled={submitting || !authReady}>
-            {submitting ? 'Вхід…' : 'Увійти'}
+            {submitting ? 'Signing in…' : 'Log in'}
           </button>
         </form>
         <p className="auth-footer">
-          Немає облікового запису? <Link to="/register">Реєстрація</Link>
+          No account? <Link to="/register">Register</Link>
           <br />
-          <Link to="/dashboard">Продовжити без входу</Link>
+          <Link to="/forgot-password">Forgot password?</Link>
+          <br />
+          <Link to="/dashboard">Continue without signing in</Link>
         </p>
       </div>
     </div>

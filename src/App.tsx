@@ -12,8 +12,11 @@ import { HistoryPage } from './pages/HistoryPage';
 import { FavoritesPage } from './pages/FavoritesPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ReportProblemPage } from './pages/ReportProblemPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { PrivateRoute } from './components/PrivateRoute';
 import { GuestRoute } from './components/GuestRoute';
+import { RouteHistoryLogger } from './components/RouteHistoryLogger';
 import { useAuth } from './hooks/useAuth';
 
 type NavIconKind =
@@ -218,9 +221,11 @@ function MoonIcon() {
 /**
  * Верхня панель з брендом, перемикачем теми та кнопками входу / виходу.
  *
+ * @param root0 - Параметри компонента.
+ * @param root0.onBurgerClick - Обробник натискання кнопки бургера.
  * @returns Елемент хедера.
  */
-function AppHeaderBar() {
+function AppHeaderBar({ onBurgerClick }: { onBurgerClick: () => void }) {
   const { user, signOut, loading } = useAuth();
   const [isLight, setIsLight] = useState<boolean>(() => {
     try {
@@ -230,7 +235,6 @@ function AppHeaderBar() {
     }
   });
 
-  /** Ініціалізація теми з localStorage при монтуванні компонента */
   useEffect(() => {
     if (isLight) {
       document.documentElement.classList.add('theme-light');
@@ -239,7 +243,6 @@ function AppHeaderBar() {
     }
   }, [isLight]);
 
-  /** Перемикання між темною та світлою темою */
   const handleThemeToggle = () => {
     setIsLight((prev) => {
       const next = !prev;
@@ -262,12 +265,22 @@ function AppHeaderBar() {
 
   return (
     <header className="app-header">
-      <span className="app-header-brand">Media Insight Hub</span>
+      <div className="app-header-left">
+        <button
+          type="button"
+          className="app-burger"
+          aria-label="Toggle navigation"
+          onClick={onBurgerClick}
+        >
+          <span /><span /><span />
+        </button>
+        <span className="app-header-brand">Media Insight Hub</span>
+      </div>
       <div className="app-header-actions">
         <button
           type="button"
           className="app-header-btn app-theme-toggle"
-          aria-label={isLight ? 'Перемкнути на темну тему' : 'Перемкнути на світлу тему'}
+          aria-label={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
           onClick={handleThemeToggle}
         >
           {isLight ? <MoonIcon /> : <SunIcon />}
@@ -277,19 +290,19 @@ function AppHeaderBar() {
         ) : user ? (
           <>
             <span className="app-header-user" title={user.email ?? ''}>
-              {user.displayName?.trim() || user.email || 'Користувач'}
+              {user.displayName?.trim() || user.email || 'User'}
             </span>
             <button type="button" className="app-header-btn" onClick={() => void handleSignOut()}>
-              Вийти
+              Sign out
             </button>
           </>
         ) : (
           <>
             <NavLink to="/login" className="app-header-btn app-header-btn--primary">
-              Увійти
+              Log in
             </NavLink>
             <NavLink to="/register" className="app-header-btn">
-              Реєстрація
+              Register
             </NavLink>
           </>
         )}
@@ -305,74 +318,66 @@ function AppHeaderBar() {
  */
 function MainLayout() {
   const { user } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const closeSidebar = () => setSidebarOpen(false);
 
   return (
     <div className="app-root">
-      <aside className="sidebar">
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={closeSidebar} aria-hidden="true" />
+      )}
+      <aside className={`sidebar${sidebarOpen ? ' sidebar--open' : ''}`}>
         <nav className="nav">
           <div className="nav-section-label">Modules</div>
-          <NavLink to="/dashboard" className="nav-link">
-            <span className="nav-link-icon" aria-hidden="true">
-              <NavIcon kind="home" />
-            </span>
+          <NavLink to="/dashboard" className="nav-link" onClick={closeSidebar}>
+            <span className="nav-link-icon" aria-hidden="true"><NavIcon kind="home" /></span>
             Dashboard
           </NavLink>
-          <NavLink to="/ocr" className="nav-link">
-            <span className="nav-link-icon" aria-hidden="true">
-              <NavIcon kind="document" />
-            </span>
+          <NavLink to="/ocr" className="nav-link" onClick={closeSidebar}>
+            <span className="nav-link-icon" aria-hidden="true"><NavIcon kind="document" /></span>
             OCR
           </NavLink>
-          <NavLink to="/gallery" className="nav-link">
-            <span className="nav-link-icon" aria-hidden="true">
-              <NavIcon kind="gallery" />
-            </span>
+          <NavLink to="/gallery" className="nav-link" onClick={closeSidebar}>
+            <span className="nav-link-icon" aria-hidden="true"><NavIcon kind="gallery" /></span>
             Smart Gallery
           </NavLink>
-          <NavLink to="/detection" className="nav-link">
-            <span className="nav-link-icon" aria-hidden="true">
-              <NavIcon kind="target" />
-            </span>
+          <NavLink to="/detection" className="nav-link" onClick={closeSidebar}>
+            <span className="nav-link-icon" aria-hidden="true"><NavIcon kind="target" /></span>
             Object Detection
           </NavLink>
-          <NavLink to="/transcriber" className="nav-link">
-            <span className="nav-link-icon" aria-hidden="true">
-              <NavIcon kind="mic" />
-            </span>
+          <NavLink to="/transcriber" className="nav-link" onClick={closeSidebar}>
+            <span className="nav-link-icon" aria-hidden="true"><NavIcon kind="mic" /></span>
             Media Transcriber
           </NavLink>
           {user ? (
             <>
-              <div className="nav-section-label" style={{ marginTop: '0.75rem' }}>
-                Акаунт
-              </div>
-              <NavLink to="/profile" className="nav-link">
-                <span className="nav-link-icon" aria-hidden="true">
-                  <NavIcon kind="user" />
-                </span>
-                Профіль
+              <div className="nav-section-label" style={{ marginTop: '0.75rem' }}>Account</div>
+              <NavLink to="/profile" className="nav-link" onClick={closeSidebar}>
+                <span className="nav-link-icon" aria-hidden="true"><NavIcon kind="user" /></span>
+                Profile
               </NavLink>
-              <NavLink to="/history" className="nav-link">
-                <span className="nav-link-icon" aria-hidden="true">
-                  <NavIcon kind="clock" />
-                </span>
-                Історія
+              <NavLink to="/history" className="nav-link" onClick={closeSidebar}>
+                <span className="nav-link-icon" aria-hidden="true"><NavIcon kind="clock" /></span>
+                History
               </NavLink>
-              <NavLink to="/favorites" className="nav-link">
-                <span className="nav-link-icon" aria-hidden="true">
-                  <NavIcon kind="star" />
-                </span>
-                Обране
+              <NavLink to="/favorites" className="nav-link" onClick={closeSidebar}>
+                <span className="nav-link-icon" aria-hidden="true"><NavIcon kind="star" /></span>
+                Favourites
               </NavLink>
             </>
           ) : null}
         </nav>
         <div className="sidebar-footer">
           <div className="sidebar-footer-models">Tesseract · TF.js · COCO-SSD</div>
+          <NavLink to="/report" className="sidebar-footer-report" onClick={closeSidebar}>
+            Report a problem
+          </NavLink>
         </div>
       </aside>
       <main className="main">
-        <AppHeaderBar />
+        <AppHeaderBar onBurgerClick={() => setSidebarOpen((v) => !v)} />
+        <RouteHistoryLogger />
         <section className="content">
           <Outlet />
         </section>
@@ -405,6 +410,15 @@ export function App() {
           </GuestRoute>
         }
       />
+      <Route
+        path="/forgot-password"
+        element={
+          <GuestRoute>
+            <ForgotPasswordPage />
+          </GuestRoute>
+        }
+      />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<MainLayout />}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />

@@ -30,30 +30,6 @@ npm run lint
 npm run lint:fix
 ```
 
-## Результати першого запуску
-
-Початковий стан: 15 проблем (7 errors, 8 warnings)
-
-| Файл | Проблема | Тип |
-|---|---|---|
-| `MediaTranscriberPage.tsx` | `status` — невикористана змінна | error |
-| `MediaTranscriberPage.tsx` | `segmentsForView` — невикористана змінна | error |
-| `MediaTranscriberPage.tsx` | `fmtTime` — невикористана функція | error |
-| `ObjectDetectionPage.tsx` | `status` — невикористана змінна | error |
-| `ObjectDetectionPage.tsx` | `padY` — невикористана змінна | error |
-| `ObjectDetectionPage.tsx` | Зайві `eslint-disable` директиви | error |
-| `OcrLabPage.tsx` | `status` — невикористана змінна | error |
-| Всі файли | `console.log/error` виклики | warning |
-
-## Виправлені проблеми
-
-Після виправлень: 0 проблем
-
-1. Видалено невикористані змінні `status`, `segmentsForView`, `padY`
-2. Видалено невикористану функцію `fmtTime`
-3. Видалено зайві `eslint-disable` директиви
-4. Налаштовано правило `no-console` — дозволено `console.error` та `console.warn`
-
 
 ## Git Hooks
 

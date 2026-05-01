@@ -6,7 +6,7 @@
 
 Дипломна робота на тему «Інформаційна система інтелектуального аналізу медіаконтенту з анімованою візуалізацією результатів розпізнавання об’єктів».
 
-Обробка AI-моделей (OCR, класифікація, детекція) виконується в браузері (TensorFlow.js, Tesseract.js). Облікові записи, історія дій та обране зберігаються на власному backend (Node.js + JSON-файл), авторизація — JWT.
+Обробка AI-моделей (OCR, класифікація, детекція) виконується в браузері (TensorFlow.js, Tesseract.js). Облікові записи, історія дій та обране зберігаються на власному backend (Node.js + SQLite), авторизація — JWT.
 
 ## Архітектура та складові системи
 
@@ -17,7 +17,7 @@
 | Веб-сервер (HTTP) | Так | У розробці: Vite dev server (порт 5173) роздає SPA та проксує `/api` на API. У production: Nginx, Caddy або інший reverse proxy — статика з `dist/` та проксування `/api` → Node. |
 | Application server | Так | Node.js + Express (`server/`) — REST API, JWT, bcrypt. |
 | СУБД (класична) | SQLite | `better-sqlite3` — вбудована БД без окремого процесу; файл `server/data.db`. |
-| Персистентні дані | Файл `server/data.db` | Користувачі, історія, обране, аналітика; SQLite з WAL-режимом. Шлях задається `DB_PATH` у `.env`. |
+| Персистентні дані | Файл `server/data.db` | Користувачі, історія, обране, аналітика, звіти, токени скидання пароля; SQLite з WAL-режимом. Шлях задається `DB_PATH` у `.env`. |
 | Файлове сховище | Так | Один файл `server/data.db` (+ WAL-файли `.db-shm`, `.db-wal` під час роботи). |
 | Кешування (Redis тощо) | Ні | Не передбачено. Статичні асети можуть кешуватися на рівні CDN/веб-сервера. |
 | CI/CD | Частково | GitHub Actions: CI — `npm run check` і `npm run build` (`.github/workflows/ci.yml`); документація — TypeDoc на Pages (`.github/workflows/docs.yml`). |
@@ -65,7 +65,7 @@ npm --version
 ### 2. Клонування репозиторію
 
 ```bash
-git clone <https://github.com/alena597/media-insight-hub.git>.git
+git clone https://github.com/alena597/media-insight-hub.git
 cd media-insight-hub
 ```
 
@@ -110,7 +110,7 @@ Frontend (опційно) — у корені можна створити `.env.
 
 ### 5. База даних (SQLite)
 
-При першому старті API автоматично створює файл `server/data.db` і ініціалізує схему (таблиці `users`, `history`, `favorites`, `detection_analytics`). Ніяких додаткових дій не потрібно. Резервне копіювання описано в [`docs/backup.md`](docs/backup.md).
+При першому старті API автоматично створює файл `server/data.db` і ініціалізує схему (таблиці `users`, `history`, `favorites`, `detection_analytics`, `reports`, `password_reset_tokens`). Ніяких додаткових дій не потрібно. Резервне копіювання описано в [`docs/backup.md`](docs/backup.md).
 
 ### 6. Запуск у режимі розробки
 
@@ -176,8 +176,8 @@ npm run dev
 ### Object Detection
 Детекція об’єктів (COCO-SSD) на зображенні або з веб-камери.
 
-### Media Transcriber & Sentiment
-Розпізнавання мовлення (Web Speech API) та відображення тональності.
+### Media Transcriber
+Розпізнавання мовлення в реальному часі через мікрофон (Web Speech API). Підтримка введення тексту вручну.
 
 ---
 

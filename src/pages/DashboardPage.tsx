@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useCountUp } from '../hooks/useCountUp';
 import { gradientDataUrlForModulePath } from '../lib/moduleCardPreview';
 import { addFavorite, fetchFavorites, removeFavorite, type FavoriteItem } from '../lib/userDataApi';
 import { apiJson } from '../lib/api';
@@ -67,7 +68,7 @@ function ModuleDonutChart({ counts }: { counts: Record<string, number> }) {
   const modules = ['/ocr', '/gallery', '/detection', '/transcriber'] as const;
   const total = modules.reduce((sum, m) => sum + (counts[m] ?? 0), 0);
 
-  const circumference = 2 * Math.PI * 50; // r=50
+  const circumference = 2 * Math.PI * 50; 
   let offset = 0;
 
   const segments = modules.map((mod) => {
@@ -81,7 +82,7 @@ function ModuleDonutChart({ counts }: { counts: Record<string, number> }) {
 
   return (
     <div className="dash-chart-donut-wrap">
-      <svg width="140" height="140" viewBox="0 0 140 140" aria-label="Діаграма використання модулів">
+      <svg width="140" height="140" viewBox="0 0 140 140" aria-label="Module usage chart" key={total}>
         <circle
           cx="70"
           cy="70"
@@ -101,7 +102,7 @@ function ModuleDonutChart({ counts }: { counts: Record<string, number> }) {
             strokeDasharray={`${circumference} 0`}
           />
         ) : (
-          segments.map(({ mod, dash, gap, startOffset }) => (
+          segments.map(({ mod, dash, gap, startOffset }, i) => (
             <circle
               key={mod}
               cx="70"
@@ -114,6 +115,7 @@ function ModuleDonutChart({ counts }: { counts: Record<string, number> }) {
               strokeDashoffset={startOffset}
               className="dash-donut-segment"
               transform="rotate(-90 70 70)"
+              style={{ animationDelay: `${i * 0.15}s` }}
             />
           ))
         )}
@@ -177,7 +179,7 @@ function ActivityBarChart({ data }: { data: Array<{ label: string; count: number
         viewBox="0 0 300 80"
         width="300"
         height="80"
-        aria-label="Графік активності за останні 7 днів"
+        aria-label="Activity chart for the last 7 days"
         style={{ overflow: 'visible' }}
       >
         {data.map((d, i) => {
@@ -352,6 +354,7 @@ export function DashboardPage() {
     [stats]
   );
   const analysesCount = stats?.total ?? 0;
+  const animatedAnalyses = useCountUp(analysesCount);
 
   return (
     <div>
@@ -359,13 +362,13 @@ export function DashboardPage() {
         <h2>
           AI <span className="accent-gradient">Transparency</span> Lab
         </h2>
-        <p className="dash-header-lead">Аналіз медіа в браузері</p>
+        <p className="dash-header-lead">In-browser media analysis</p>
       </div>
 
       <div className="dash-metrics-row">
         <div className="dash-metric-card">
           <div className="dash-metric-label">Analyses</div>
-          <div className="dash-metric-value">{user ? analysesCount : '—'}</div>
+          <div className="dash-metric-value">{user ? animatedAnalyses : '—'}</div>
         </div>
         <div className="dash-metric-card">
           <div className="dash-metric-label">Models</div>
@@ -399,17 +402,17 @@ export function DashboardPage() {
         {!user ? (
           <div className="dash-analytics-login-prompt">
             <span className="dash-analytics-login-icon">📊</span>
-            <p>Увійдіть в акаунт, щоб переглянути статистику використання.</p>
+            <p>Sign in to view your usage statistics.</p>
           </div>
         ) : statsError ? (
           <div className="dash-analytics-login-prompt">
             <span className="dash-analytics-login-icon">⚠️</span>
-            <p>Не вдалося завантажити статистику. Перевірте, чи запущений сервер.</p>
+            <p>Could not load statistics. Make sure the server is running.</p>
           </div>
         ) : statsLoading ? (
           <div className="dash-analytics-login-prompt">
             <span className="dash-analytics-login-icon">⏳</span>
-            <p>Завантаження статистики…</p>
+            <p>Loading statistics…</p>
           </div>
         ) : (
           <div className="dash-analytics-row">
@@ -465,7 +468,7 @@ function DashboardCard(props: DashboardCardProps) {
         <button
           type="button"
           className={`dash-card-fav ${isFavorite ? 'dash-card-fav--filled' : 'dash-card-fav--outline'}`}
-          aria-label={isFavorite ? 'Прибрати з обраного' : 'Додати в обране'}
+          aria-label={isFavorite ? 'Remove from favourites' : 'Add to favourites'}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();

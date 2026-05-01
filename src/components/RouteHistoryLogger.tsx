@@ -18,7 +18,12 @@ export function RouteHistoryLogger() {
   useEffect(() => {
     if (!authReady || !user) return;
     const path = location.pathname;
-    if (path === '/login' || path === '/register') {
+    const SKIP = new Set([
+      '/login', '/register', '/forgot-password', '/reset-password',
+      '/dashboard', '/ocr', '/gallery', '/detection', '/transcriber',
+      '/history', '/favorites', '/profile',
+    ]);
+    if (SKIP.has(path)) {
       lastPath.current = path;
       return;
     }

@@ -7,7 +7,7 @@ const router = Router();
 
 router.use(authMiddleware);
 
-const HISTORY_LIMIT = 80;
+const HISTORY_LIMIT = 200;
 const MAX_PREVIEW_LEN = 1_200_000;
 const MAX_RESUME_LEN = 1_500_000;
 

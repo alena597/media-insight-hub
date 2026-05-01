@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import JSZip from 'jszip';
 import * as mobilenet from '@tensorflow-models/mobilenet';
 import '@tensorflow/tfjs';
 import { gsap } from 'gsap';
@@ -23,6 +24,7 @@ type CategoryKey =
   | 'transport'
   | 'food'
   | 'tableware'
+  | 'building'
   | 'other';
 
 type GalleryItem = {
@@ -44,6 +46,7 @@ const CATEGORY_LABELS: Record<CategoryKey, string> = {
   transport: 'Transport',
   food: 'Food',
   tableware: 'Tableware',
+  building: 'Buildings',
   other: 'Other'
 };
 
@@ -58,6 +61,7 @@ const CATEGORY_ORDER: CategoryKey[] = [
   'transport',
   'food',
   'tableware',
+  'building',
   'other'
 ];
 
@@ -118,7 +122,11 @@ function mapLabelToCategory(topClass: string, fallbackClasses?: string): Categor
     const l = normalize(raw);
     const tok = words(l);
 
-    // ── Посуд / кухонне приладдя (перевіряємо РАНІШЕ за одяг і транспорт) ──
+    const flowerNature = ['flowerpot', 'flower pot', 'plant pot', 'bouquet', 'flower arrangement', 'corsage', 'wreath', 'vase'];
+    if (hasWord(tok, flowerNature) || (tok.includes('flower') && tok.includes('pot'))) return 'nature';
+
+
+    const isSolarDish = (tok.includes('solar') || tok.includes('satellite') || tok.includes('dish') && tok.includes('solar')) && tok.includes('dish');
     const tableware = [
       'plate', 'bowl', 'cup', 'mug', 'saucer', 'teapot', 'coffeepot', 'goblet',
       'pitcher', 'ladle', 'spoon', 'fork', 'knife', 'dish', 'platter', 'skillet',
@@ -127,10 +135,10 @@ function mapLabelToCategory(topClass: string, fallbackClasses?: string): Categor
       'measuring cup', 'mixing bowl', 'punch bowl', 'soup bowl', 'serving dish',
       'chopsticks', 'saltshaker', 'pepper', 'vinegar'
     ];
-    // "pot" і "pan" мають коротку форму — перевіряємо окремим словом
-    if (tok.includes('pot') || tok.includes('pan') || tok.includes('wok') ||
+    const potMatch = tok.includes('pot') && !tok.includes('flower');
+    if (!isSolarDish && (potMatch || tok.includes('pan') || tok.includes('wok') ||
         tok.includes('bottle') || tok.includes('wine') || tok.includes('beer') ||
-        tok.includes('glass') || hasWord(tok, tableware)) return 'tableware';
+        tok.includes('glass') || hasWord(tok, tableware))) return 'tableware';
 
     // ── Їжа / напої ──
     const food = [
@@ -150,7 +158,11 @@ function mapLabelToCategory(topClass: string, fallbackClasses?: string): Categor
     // ── Люди ──
     const people = [
       'person', 'man', 'woman', 'boy', 'girl', 'people', 'face', 'bride',
-      'child', 'adult', 'soldier', 'athlete', 'diver', 'player', 'cowboy'
+      'child', 'adult', 'soldier', 'athlete', 'diver', 'player', 'cowboy',
+      'baby', 'toddler', 'policeman', 'doctor', 'nurse', 'chef', 'worker',
+      'judge', 'scuba', 'surfer', 'gymnast', 'boxer', 'baseball', 'basketball',
+      'football', 'soccer', 'tennis', 'golfer', 'jockey', 'archer', 'fencer',
+      'skier', 'snowboarder', 'rafting', 'parachutist', 'beekeeper', 'gardener'
     ];
     if (hasWord(tok, people)) return 'people';
 
@@ -159,9 +171,16 @@ function mapLabelToCategory(topClass: string, fallbackClasses?: string): Categor
       'laptop', 'computer', 'screen', 'monitor', 'keyboard', 'phone', 'camera',
       'television', 'printer', 'modem', 'disk', 'projector', 'cellular',
       'handset', 'radio', 'microscope', 'oscilloscope', 'clock', 'atm',
-      'remote control', 'television', 'vcr', 'ipod'
+      'remote control', 'vcr', 'ipod', 'calculator', 'cassette', 'typewriter',
+      'joystick', 'mouse', 'speaker', 'headphone', 'earphone', 'microphone',
+      'amplifier', 'guitar', 'piano', 'violin', 'drum', 'accordion', 'banjo',
+      'saxophone', 'flute', 'trumpet', 'harmonica', 'synthesizer', 'turntable',
+      'hard disk', 'hard drive', 'cd player', 'boombox', 'tape player',
+      'electric fan', 'sewing machine', 'hair dryer', 'iron', 'vacuum'
     ];
     if (tok.includes('tv') || tok.includes('watch') || tok.includes('lens') ||
+        tok.includes('tablet') || tok.includes('drone') || tok.includes('robot') ||
+        tok.includes('switch') || tok.includes('controller') ||
         hasWord(tok, tech)) return 'tech';
 
     // ── Одяг ──
@@ -186,6 +205,24 @@ function mapLabelToCategory(topClass: string, fallbackClasses?: string): Categor
         tok.includes('floor') || tok.includes('apartment') || tok.includes('house') ||
         tok.includes('studio') || hasWord(tok, interior)) return 'interior';
 
+    // ── Будівлі / архітектура ──
+    const building = [
+      'church', 'cathedral', 'mosque', 'temple', 'synagogue', 'chapel',
+      'castle', 'palace', 'tower', 'bridge', 'lighthouse', 'beacon',
+      'barn', 'warehouse', 'library', 'school', 'hospital', 'prison',
+      'monastery', 'pagoda', 'minaret', 'obelisk', 'triumphal arch',
+      'stupa', 'dome', 'fort', 'villa', 'skyscraper', 'water tower',
+      'planetarium', 'boathouse', 'greenhouse', 'silo', 'yurt',
+      'megalith', 'suspension bridge', 'arch bridge', 'viaduct',
+      'cinema', 'theater', 'train station', 'bus station', 'airport', 'mall', 'shop',
+      'store', 'restaurant', 'hotel', 'office', 'building', 'architecture'
+    ];
+    if (tok.includes('church') || tok.includes('castle') || tok.includes('bridge') ||
+        tok.includes('tower') || tok.includes('palace') || tok.includes('mosque') ||
+        tok.includes('temple') || tok.includes('barn') || tok.includes('silo') ||
+        tok.includes('prison') || tok.includes('monastery') || tok.includes('dome') ||
+        hasWord(tok, building)) return 'building';
+
     // ── Тварини ──
     const animals = [
       'cat', 'dog', 'puppy', 'kitten', 'animal', 'bird', 'horse', 'cow', 'sheep',
@@ -194,7 +231,26 @@ function mapLabelToCategory(topClass: string, fallbackClasses?: string): Categor
       'retriever', 'terrier', 'tabby', 'siamese', 'persian', 'egyptian',
       'jellyfish', 'goldfish', 'snail', 'turtle', 'lizard', 'snake', 'crocodile',
       'lynx', 'cheetah', 'deer', 'pig', 'bison', 'flamingo', 'penguin', 'swan',
-      'duck', 'parrot', 'eagle', 'owl', 'bear', 'ox'
+      'duck', 'parrot', 'eagle', 'owl', 'bear', 'ox',
+      'frog', 'toad', 'salamander', 'newt', 'axolotl', 'chameleon', 'iguana',
+      'gecko', 'komodo', 'alligator', 'caiman', 'leatherback', 'loggerhead',
+      'crab', 'lobster', 'shrimp', 'starfish', 'sea urchin', 'clam', 'oyster',
+      'bee', 'wasp', 'butterfly', 'moth', 'dragonfly', 'beetle', 'ant', 'spider',
+      'scorpion', 'centipede', 'caterpillar', 'grasshopper', 'cricket', 'fly',
+      'mosquito', 'ladybug', 'mantis', 'cockroach', 'termite',
+      'shark', 'whale', 'dolphin', 'seal', 'walrus', 'otter', 'manatee', 'narwhal',
+      'pelican', 'heron', 'toucan', 'hornbill', 'peacock', 'rooster', 'hen',
+      'goose', 'pigeon', 'sparrow', 'robin', 'finch', 'hummingbird', 'woodpecker',
+      'albatross', 'cormorant', 'puffin', 'ostrich', 'emu', 'kiwi', 'cassowary',
+      'meerkat', 'mongoose', 'badger', 'otter', 'weasel', 'ferret', 'skunk',
+      'armadillo', 'anteater', 'sloth', 'koala', 'kangaroo', 'wallaby', 'platypus',
+      'bison', 'moose', 'elk', 'reindeer', 'caribou', 'yak', 'llama', 'alpaca',
+      'camel', 'dromedary', 'donkey', 'mule', 'goat', 'ram', 'bull', 'calf',
+      'piglet', 'foal', 'fawn', 'cub', 'pup', 'hatchling', 'chick', 'filly',
+      'husky', 'labrador', 'bulldog', 'beagle', 'dalmatian', 'collie', 'spaniel',
+      'dachshund', 'boxer', 'rottweiler', 'doberman', 'chihuahua', 'maltese',
+      'shih', 'afghan', 'greyhound', 'whippet', 'mastiff', 'setter', 'pointer',
+      'maine', 'ragdoll', 'abyssinian', 'burmese', 'birman', 'sphynx', 'bengal'
     ];
     if (hasWord(tok, animals)) return 'animals';
 
@@ -210,29 +266,47 @@ function mapLabelToCategory(topClass: string, fallbackClasses?: string): Categor
         tok.includes('wardrobe') || tok.includes('chest') || tok.includes('kitchen') ||
         hasWord(tok, furniture)) return 'furniture';
 
+    // ── Транспорт  ──
+    const transport = [
+      'bicycle', 'motorcycle', 'airplane', 'train', 'ambulance', 'fire engine',
+      'taxi', 'minivan', 'limousine', 'tractor', 'forklift', 'lifeboat',
+      'canoe', 'yacht', 'airship', 'helicopter', 'locomotive', 'streetcar',
+      'convertible', 'scooter', 'submarine', 'trolleybus', 'sports car',
+      'pickup truck', 'freight car', 'school bus', 'minibus', 'station wagon',
+      'beach wagon', 'estate car', 'wagon', 'rickshaw', 'segway', 'skateboard',
+      'snowmobile', 'go-kart', 'racing car', 'tanker', 'container ship', 'ferry',
+      'catamaran', 'sailboat', 'rowboat', 'gondola', 'kayak', 'jet ski',
+      'seaplane', 'biplane', 'glider', 'hang glider', 'paraglider', 'zeppelin',
+      'space shuttle', 'rocket', 'spacecraft',
+      'crane', 'bulldozer', 'excavator', 'steamroller', 'combine harvester'
+    ];
+    if (tok.includes('car') || tok.includes('bus') || tok.includes('truck') ||
+        tok.includes('wagon') || tok.includes('boat') || tok.includes('ship') ||
+        tok.includes('jet') || tok.includes('suv') || tok.includes('balloon') ||
+        tok.includes('trolley') || tok.includes('van') || tok.includes('cab') ||
+        tok.includes('cycle') || tok.includes('rail') || tok.includes('plane') ||
+        tok.includes('craft') || hasWord(tok, transport)) return 'transport';
+
     // ── Природа ──
     const nature = [
       'tree', 'flower', 'mountain', 'beach', 'river', 'forest', 'lake', 'ocean',
       'cliff', 'valley', 'volcano', 'coral', 'leaf', 'branch', 'grass', 'bush',
       'palm', 'sunflower', 'rose', 'daisy', 'tulip', 'orchid', 'dandelion',
       'fern', 'willow', 'maple', 'oak', 'pine', 'snow', 'ice', 'waterfall',
-      'sea', 'sky', 'cloud', 'sand', 'rock', 'stone', 'mushroom', 'strawberry'
+      'sea', 'sky', 'cloud', 'sand', 'rock', 'stone', 'mushroom',
+      'field', 'meadow', 'jungle', 'swamp', 'marsh', 'tundra', 'desert', 'dune',
+      'glacier', 'iceberg', 'aurora', 'rainbow', 'lightning', 'fog', 'mist',
+      'sunrise', 'sunset', 'horizon', 'coast', 'shore', 'island', 'peninsula',
+      'canyon', 'gorge', 'plateau', 'savanna', 'steppe', 'prairie', 'bog',
+      'pond', 'creek', 'brook', 'stream', 'spring', 'geyser', 'hot spring',
+      'birch', 'spruce', 'cedar', 'redwood', 'bamboo', 'cactus', 'succulent',
+      'moss', 'lichen', 'algae', 'seaweed', 'kelp', 'coral reef',
+      'lavender', 'poppy', 'lilac', 'magnolia', 'cherry blossom', 'lotus',
+      'daffodil', 'iris', 'hyacinth', 'carnation', 'lily', 'marigold',
+      'wheat', 'corn', 'rice', 'vineyard', 'orchard',
+      'plant', 'herb', 'shrub', 'weed', 'vine', 'petal', 'blossom', 'bloom'
     ];
     if (hasWord(tok, nature)) return 'nature';
-
-    // ── Транспорт (після їжі/посуду, щоб уникнути wagon/gondola плутанини) ──
-    const transport = [
-      'bicycle', 'motorcycle', 'airplane', 'train', 'ambulance', 'fire engine',
-      'taxi', 'minivan', 'limousine', 'tractor', 'forklift', 'lifeboat',
-      'canoe', 'yacht', 'airship', 'helicopter', 'locomotive', 'streetcar',
-      'convertible', 'scooter', 'submarine', 'trolleybus', 'sports car',
-      'pickup truck', 'freight car', 'school bus', 'minibus'
-    ];
-    // короткі слова транспорту — точні токени
-    if (tok.includes('car') || tok.includes('bus') || tok.includes('truck') ||
-        tok.includes('boat') || tok.includes('ship') || tok.includes('jet') ||
-        tok.includes('suv') || tok.includes('balloon') || tok.includes('trolley') ||
-        hasWord(tok, transport)) return 'transport';
 
     return 'other';
   };
@@ -260,6 +334,18 @@ function getConfidencePct(item: GalleryItem): number | null {
 }
 
 /**
+ * Повертає очищений топ-лейбл для елемента галереї.
+ *
+ * @param item - Елемент галереї з prediction.
+ * @returns Назва класу або null.
+ */
+function getTopLabel(item: GalleryItem): string | null {
+  if (!item.predictions || item.predictions.length === 0) return null;
+  const raw = item.predictions[0].className ?? '';
+  return raw.replace(/\bn\d+\s*/g, '').replace(/_/g, ' ').trim() || null;
+}
+
+/**
  * Головний компонент сторінки "Розумна галерея".
  * 
  * @description
@@ -283,6 +369,7 @@ export function SmartGalleryPage() {
   const [isClassifying, setIsClassifying] = useState(false);
   const [analysisStarted, setAnalysisStarted] = useState(false);
   const [sgResultSnapshot, setSgResultSnapshot] = useState<{ previewImage: string; resumePayload: string } | null>(null);
+  const [limitWarning, setLimitWarning] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -334,9 +421,12 @@ export function SmartGalleryPage() {
     };
   }, [model, isLoadingModel]);
 
+  const FILE_LIMIT = 20;
+
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const slice = Array.from(files).slice(0, 20);
+    if (files.length > FILE_LIMIT) setLimitWarning(true);
+    const slice = Array.from(files).slice(0, FILE_LIMIT);
     const newItems: GalleryItem[] = slice.map((file) => ({
       id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
       fileName: file.name,
@@ -426,8 +516,18 @@ export function SmartGalleryPage() {
     setStatus(`Done in ${elapsed.toFixed(1)} s`);
     requestAnimationFrame(() => {
       if (!containerRef.current) return;
+      const sections = containerRef.current.querySelectorAll('.sg-section-title');
+      gsap.from(sections, { opacity: 0, x: -12, duration: 0.32, stagger: 0.07, ease: 'power2.out' });
       const cards = containerRef.current.querySelectorAll('.sg-card');
-      gsap.from(cards, { opacity: 0, y: 20, duration: 0.4, stagger: 0.02, ease: 'power2.out' });
+      gsap.from(cards, {
+        opacity: 0,
+        y: 18,
+        scale: 0.9,
+        duration: 0.42,
+        stagger: 0.025,
+        ease: 'back.out(1.5)',
+        delay: 0.05
+      });
     });
     setIsClassifying(false);
 
@@ -458,7 +558,7 @@ export function SmartGalleryPage() {
             saveLastWorkbenchResume('/gallery', s);
             await addHistoryEntry({
               kind: 'analysis',
-              label: `Галерея · ${updated.length} зображ.`,
+              label: `Gallery · ${updated.length} images`,
               path: '/gallery',
               previewImage: thumb ?? undefined,
               resumePayload: s
@@ -495,6 +595,32 @@ export function SmartGalleryPage() {
     URL.revokeObjectURL(url);
   };
 
+  /** Завантажує зображення розсортованими по папках (категоріях) у ZIP-архіві. */
+  const handleDownloadZip = async () => {
+    const zip = new JSZip();
+    const classified = items.filter((it) => it.category && it.url);
+    const counters: Record<string, number> = {};
+    for (const item of classified) {
+      try {
+        const response = await fetch(item.url);
+        const blob = await response.blob();
+        const ext = item.fileName.includes('.') ? item.fileName.split('.').pop() ?? 'jpg' : 'jpg';
+        const cat = item.category!;
+        counters[cat] = (counters[cat] ?? 0) + 1;
+        const n = String(counters[cat]).padStart(2, '0');
+        zip.folder(cat)?.file(`${n}.${ext}`, blob);
+      } catch {
+        /* skip unavailable blob */
+      }
+    }
+    const content = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(content);
+    a.download = `gallery-sorted-${Date.now()}.zip`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   const selected = items.find((i) => i.id === activeItemId) ?? null;
 
   const byCategory = new Map<CategoryKey, GalleryItem[]>();
@@ -518,7 +644,7 @@ export function SmartGalleryPage() {
           {user && hasAnyClassified && sgResultSnapshot && (
             <FavoriteResultStar
               path="/gallery"
-              title={`Галерея · ${items.length} зображ.`}
+              title={`Gallery · ${items.length} images`}
               previewImage={sgResultSnapshot.previewImage}
               resumePayload={sgResultSnapshot.resumePayload}
             />
@@ -543,7 +669,7 @@ export function SmartGalleryPage() {
 
           {items.length === 0 ? (
             <div className="sg-add-zone" role="button" tabIndex={0} onClick={openFilePicker} onKeyDown={(e) => e.key === 'Enter' && openFilePicker()}>
-              <span>Click or drop an image</span>
+              <span className="module-upload-empty-text">Click or drop an image</span>
             </div>
           ) : (
             <>
@@ -560,9 +686,14 @@ export function SmartGalleryPage() {
                   ＋
                 </button>
                 {hasAnyClassified ? (
-                  <button type="button" className="secondary-button" onClick={handleExportJson}>
-                    ↓ Export JSON
-                  </button>
+                  <>
+                    <button type="button" className="secondary-button" onClick={handleExportJson}>
+                      ↓ Export JSON
+                    </button>
+                    <button type="button" className="secondary-button" onClick={() => { void handleDownloadZip(); }}>
+                      ↓ Download ZIP
+                    </button>
+                  </>
                 ) : null}
                 <button
                   type="button"
@@ -574,6 +705,12 @@ export function SmartGalleryPage() {
                 </button>
                 <span className="sg-status" aria-live="polite">{status}</span>
               </div>
+              {limitWarning ? (
+                <div className="sg-limit-warning" role="alert">
+                  Only the first {FILE_LIMIT} photos are processed. To analyse more, clear the gallery and add a new batch.
+                  <button type="button" className="sg-limit-warning__close" onClick={() => setLimitWarning(false)} aria-label="Dismiss">✕</button>
+                </div>
+              ) : null}
               <div ref={containerRef} className="sg-scroll">
                 {isClassifying ? <div className="sg-loading-overlay">Classifying…</div> : null}
                 {showUnclassifiedOnly ? (
@@ -628,6 +765,7 @@ export function SmartGalleryPage() {
                           {list.map((item) => {
                             const isActive = activeItemId === item.id;
                             const pct = getConfidencePct(item);
+                            const topLabel = getTopLabel(item);
                             return (
                               <button
                                 key={item.id}
@@ -637,7 +775,9 @@ export function SmartGalleryPage() {
                               >
                                 <img src={item.url} alt={item.fileName} className="sg-card-img" />
                                 {pct !== null && (
-                                  <span className="sg-card-badge">{pct}%</span>
+                                  <span className="sg-card-badge" title={topLabel ?? undefined}>
+                                    {topLabel ? `${topLabel} ${pct}%` : `${pct}%`}
+                                  </span>
                                 )}
                                 <span
                                   className="sg-card-delete"
@@ -663,6 +803,7 @@ export function SmartGalleryPage() {
                       {items.map((item) => {
                         const isActive = activeItemId === item.id;
                         const pct = getConfidencePct(item);
+                        const topLabel = getTopLabel(item);
                         return (
                           <button
                             key={item.id}
@@ -671,7 +812,11 @@ export function SmartGalleryPage() {
                             onClick={() => setActiveItemId(item.id)}
                           >
                             <img src={item.url} alt={item.fileName} className="sg-card-img" />
-                            {pct !== null && <span className="sg-card-badge">{pct}%</span>}
+                            {pct !== null && (
+                              <span className="sg-card-badge" title={topLabel ?? undefined}>
+                                {topLabel ? `${topLabel} ${pct}%` : `${pct}%`}
+                              </span>
+                            )}
                             <span
                               className="sg-card-delete"
                               onClick={(e) => removeItem(item.id, e)}
@@ -709,7 +854,7 @@ export function SmartGalleryPage() {
                   const pct = Math.round(p.probability * 100);
                   return (
                     <li key={idx} className="sg-pred-row">
-                      <span className="sg-pred-label">{p.className}</span>
+                      <span className="sg-pred-label">{p.className.replace(/\bn\d+\s*/g, '').replace(/_/g, ' ').trim()}</span>
                       <div className="sg-pred-bar-wrap">
                         <div className="sg-pred-bar-fill" style={{ width: `${pct}%` }} />
                       </div>

@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         if (!cancelled) {
           setConfigMessage(
-            'Бекенд недоступний. У іншому терміналі: cd server → npm install → npm run dev'
+            'Backend unavailable. In another terminal: cd server → npm install → npm run dev'
           );
         }
         if (!cancelled) setLoading(false);
@@ -85,6 +85,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateProfile = useCallback(async (displayName: string) => {
+    const data = await apiJson<{ user: AppUser }>('/api/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({ displayName })
+    });
+    setUser(data.user);
+  }, []);
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    await apiJson('/api/auth/password', {
+      method: 'PATCH',
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -93,9 +108,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       configMessage,
       signIn,
       signUp,
-      signOut
+      signOut,
+      updateProfile,
+      changePassword
     }),
-    [user, loading, configMessage, signIn, signUp, signOut]
+    [user, loading, configMessage, signIn, signUp, signOut, updateProfile, changePassword]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

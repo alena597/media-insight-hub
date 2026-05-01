@@ -34,20 +34,20 @@ export function messageForAuthFormError(err: ApiError): string {
 export function mapAuthError(code: string): string {
   switch (code) {
     case 'INVALID_EMAIL':
-      return 'Некоректна адреса електронної пошти.';
+      return 'Invalid email address.';
     case 'WEAK_PASSWORD':
-      return 'Пароль занадто слабкий (мінімум 6 символів).';
+      return 'Password too weak (min. 8 characters + digit or special character).';
     case 'EMAIL_IN_USE':
-      return 'Цей email уже зареєстровано.';
+      return 'This email is already registered.';
     case 'INVALID_CREDENTIALS':
-      return 'Невірний email або пароль.';
+      return 'Invalid email or password.';
     case 'INVALID_INPUT':
-      return 'Перевірте введені дані.';
+      return 'Please check your input.';
     case 'UNAUTHORIZED':
     case 'INVALID_TOKEN':
     case 'USER_NOT_FOUND':
-      return 'Сесію завершено. Увійдіть знову.';
+      return 'Session expired. Please sign in again.';
     default:
-      return 'Помилка авторизації. Спробуйте ще раз.';
+      return 'Authentication error. Please try again.';
   }
 }

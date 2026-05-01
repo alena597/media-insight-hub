@@ -11,6 +11,7 @@ import favoritesRoutes from './routes/favoritesRoutes.js';
 import clientLogRoutes from './routes/clientLogRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
+import reportsRoutes from './routes/reportsRoutes.js';
 import { getDb } from './db.js';
 import { logger } from './logger.js';
 import { requestContextMiddleware } from './middleware/requestContext.js';
@@ -53,6 +54,7 @@ app.post('/api/history/clear', authMiddleware, (req, res) => {
 app.use('/api/history', historyRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/reports', reportsRoutes);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distPath = path.join(__dirname, '../../dist');

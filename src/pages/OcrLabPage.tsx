@@ -19,6 +19,39 @@ type OcrBlock = {
 type OcrLang = 'eng' | 'ukr' | 'eng+ukr';
 
 /**
+  * Постпроцесинг OCR-тексту для покращення читабельності та видалення шуму.
+  * Ця функція застосовує кілька правил:
+  * 1. Виправляє лапки, які використовуються як апострофи в англійських скороченнях (I"m → I'm).
+  * 2. Для української мови замінює цифру 6 на букву "б" у контексті українських слів (особливо в OCR результатах, де 6 часто плутають з б).
+  * 3. Видаляє рядки, які є чистим шумом: дуже короткі (1-2 символи) або ті, що містять переважно символи/цифри без достатньої кількості букв.  
+ *
+ * @param raw - Сирий OCR-текст.
+ * @param langCode - Код мови OCR.
+ * @returns Відфільтрований текст.
+ */
+function postProcessOcrText(raw: string, langCode: string): string {
+  let t = raw;
+  t = t.replace(/([A-Za-z])[""]([A-Za-z])/g, "$1'$2");
+  if (langCode === 'ukr' || langCode === 'eng+ukr') {
+    t = t.replace(/([А-ЯЄІЇа-яєії])6([А-ЯЄІЇа-яєії])/g, '$1б$2');
+    t = t.replace(/\b6([А-ЯЄІЇа-яєії])/g, 'б$1');
+    t = t.replace(/(^|\s)6(?=[А-ЯЄІЇа-яєії])/g, '$1б');
+  }
+  t = t
+    .split('\n')
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (trimmed.length === 0) return true; 
+      if (trimmed.length <= 2) return false;  
+      const letterCount = (trimmed.match(/[A-Za-zА-ЯЄІЇа-яєії]/g) ?? []).length;
+      if (letterCount < trimmed.length * 0.4 && trimmed.length < 10) return false;
+      return true;
+    })
+    .join('\n');
+  return t;
+}
+
+/**
  * Сторінка OCR лабораторії для розпізнавання тексту з зображень.
  *
  * @description
@@ -50,6 +83,7 @@ export function OcrLabPage() {
   const [, setStatus] = useState('Waiting for image');
   const [isRunning, setIsRunning] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [revealKey, setRevealKey] = useState(0);
   const [lang, setLang] = useState<OcrLang>('eng+ukr');
   const [wordsCount, setWordsCount] = useState(0);
   const [avgConfidence, setAvgConfidence] = useState<number | null>(null);
@@ -133,7 +167,6 @@ export function OcrLabPage() {
     setLogLines([]);
     setImageSize(null);
     pushLog('[00:00.000] Image loaded, waiting for OCR...');
-    // Зберігаємо лише мінімальний стан сесії 
     if (user) {
       void (async () => {
         try {
@@ -223,7 +256,8 @@ export function OcrLabPage() {
         top: endY,
         duration: 1.6,
         ease: 'power2.inOut',
-        repeat: 1
+        repeat: -1,
+        yoyo: true
       }
     );
   }, [getImageRenderRect]);
@@ -247,9 +281,6 @@ export function OcrLabPage() {
   const handleRunOcr = useCallback(async () => {
     if (!imageUrl || isRunning) return;
     const el = imgRef.current;
-    if (el?.naturalWidth && el?.naturalHeight) {
-      setImageSize({ width: el.naturalWidth, height: el.naturalHeight });
-    }
     setShowResults(true);
     setIsRunning(true);
     setBlocks([]);
@@ -264,28 +295,30 @@ export function OcrLabPage() {
 
     runLaserAnimation();
 
-    // Препроцесинг: підвищуємо контрастність та масштабуємо дрібні зображення
-    // Це значно покращує розпізнавання символів (особливо I/T, O/0 тощо)
+    let ocrProcessedW = el?.naturalWidth ?? 1;
+    let ocrProcessedH = el?.naturalHeight ?? 1;
     const buildProcessedUrl = (): string => {
       const img = imgRef.current;
       if (!img || !img.naturalWidth || !img.naturalHeight) return imageUrl;
       const nw = img.naturalWidth;
       const nh = img.naturalHeight;
-      // Масштабуємо до мінімум 1500px по більшій стороні для кращого DPI
       const scale = Math.max(1, Math.min(4, 1500 / Math.max(nw, nh)));
       const cw = Math.round(nw * scale);
       const ch = Math.round(nh * scale);
+      ocrProcessedW = cw;
+      ocrProcessedH = ch;
       const canvas = document.createElement('canvas');
       canvas.width = cw;
       canvas.height = ch;
       const ctx = canvas.getContext('2d');
       if (!ctx) return imageUrl;
-      // Малюємо збільшене зображення з підвищеним контрастом
       ctx.filter = 'grayscale(100%) contrast(1.5) brightness(1.05)';
       ctx.drawImage(img, 0, 0, cw, ch);
       return canvas.toDataURL('image/png');
     };
     const processedUrl = buildProcessedUrl();
+
+    setImageSize({ width: ocrProcessedW, height: ocrProcessedH });
 
     const start = performance.now();
     try {
@@ -299,22 +332,46 @@ export function OcrLabPage() {
       });
 
       const elapsed = (performance.now() - start) / 1000;
-      const blocksData: OcrBlock[] =
-        data.blocks?.map((b) => ({
-          text: b.text,
-          bbox: { x0: b.bbox.x0, y0: b.bbox.y0, x1: b.bbox.x1, y1: b.bbox.y1 },
-          confidence: b.confidence ?? 0
-        })) ?? [];
 
-        const dataWithSize = data as typeof data & { imageSize?: { width: number; height: number } };
-if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
-  setImageSize({ width: dataWithSize.imageSize.width, height: dataWithSize.imageSize.height });
-}
+
+      const MIN_CONF = 50;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawBlocks = (data.blocks ?? []) as any[];
+      const blocksData: OcrBlock[] = rawBlocks
+        .filter((b) => (b.confidence ?? 0) >= MIN_CONF)
+        .map((b) => ({
+          text: b.text as string,
+          bbox: { x0: b.bbox.x0 as number, y0: b.bbox.y0 as number, x1: b.bbox.x1 as number, y1: b.bbox.y1 as number },
+          confidence: (b.confidence ?? 0) as number
+        }));
+
+      const filteredLines: string[] = [];
+      for (const b of rawBlocks) {
+        if ((b.confidence ?? 0) < MIN_CONF) continue;
+        for (const para of (b.paragraphs ?? [])) {
+          for (const line of (para.lines ?? [])) {
+            const lineWords: Array<{ text: string; confidence: number }> = line.words ?? [];
+            if (!lineWords.length) continue;
+            const avgWordConf = lineWords.reduce((s, w) => s + (w.confidence ?? 0), 0) / lineWords.length;
+            if (avgWordConf < MIN_CONF) continue;
+            const lineText = lineWords.map((w) => w.text).join(' ').trim();
+            if (lineText) filteredLines.push(lineText);
+          }
+        }
+      }
+      const rawFiltered = filteredLines.length > 0 ? filteredLines.join('\n') : data.text;
+      const filteredText = postProcessOcrText(rawFiltered, langCode);
+
+      const dataWithSize = data as typeof data & { imageSize?: { width: number; height: number } };
+      if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
+        setImageSize({ width: dataWithSize.imageSize.width, height: dataWithSize.imageSize.height });
+      }
 
       setBlocks(blocksData);
-      setText(data.text);
+      setText(filteredText);
+      setRevealKey((k) => k + 1);
 
-      const words = data.text
+      const words = filteredText
         .split(/\s+/)
         .map((w) => w.trim())
         .filter(Boolean);
@@ -326,7 +383,9 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
         setAvgConfidence(avg);
       }
 
-      setStatus(`Done in ${elapsed.toFixed(1)} s, blocks: ${blocksData.length}`);
+      setStatus(
+        `Done in ${elapsed.toFixed(1)} s, blocks: ${blocksData.length}, words: ${words.length}`
+      );
       pushLog(
         `[${elapsed.toFixed(3)}] OCR finished, ${blocksData.length} blocks, ${words.length} words.`
       );
@@ -367,7 +426,7 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
             saveLastWorkbenchResume('/ocr', s);
             await addHistoryEntry({
               kind: 'analysis',
-              label: `OCR · ${words.length} слів`,
+              label: `OCR · ${words.length} words`,
               path: '/ocr',
               previewImage: thumb,
               resumePayload: s
@@ -383,6 +442,10 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
       pushLog('[ERROR] OCR failed, check console.');
     } finally {
       setIsRunning(false);
+      if (laserRef.current) {
+        gsap.killTweensOf(laserRef.current);
+        gsap.to(laserRef.current, { opacity: 0, duration: 0.3 });
+      }
     }
   }, [imageUrl, isRunning, lang, user, runLaserAnimation]);
 
@@ -480,21 +543,11 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
       <div className={`ocr-main ${showResults ? '' : 'ocr-main--no-results'}`}>
         <div className="ocr-left">
           <div
-            className="ocr-image-card"
+            className={`ocr-image-card${imageUrl ? ' ocr-image-card--has-media' : ''}`}
             onDrop={onDrop}
             onDragOver={onDragOver}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => !imageUrl && fileInputRef.current?.click()}
           >
-            {user && ocrResultSnapshot && text ? (
-              <div className="mih-fav-star-host" onClick={(e) => e.stopPropagation()}>
-                <FavoriteResultStar
-                  path="/ocr"
-                  title={`OCR · ${text.slice(0, 48)}${text.length > 48 ? '…' : ''}`}
-                  previewImage={ocrResultSnapshot.previewImage}
-                  resumePayload={ocrResultSnapshot.resumePayload}
-                />
-              </div>
-            ) : null}
             <input
               ref={fileInputRef}
               type="file"
@@ -518,6 +571,16 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
                   }}
                 />
                 <div ref={laserRef} className="ocr-laser" />
+                {user && ocrResultSnapshot && text ? (
+                  <div className="mih-fav-star-host" onClick={(e) => e.stopPropagation()}>
+                    <FavoriteResultStar
+                      path="/ocr"
+                      title={`OCR · ${text.slice(0, 48)}${text.length > 48 ? '…' : ''}`}
+                      previewImage={ocrResultSnapshot.previewImage}
+                      resumePayload={ocrResultSnapshot.resumePayload}
+                    />
+                  </div>
+                ) : null}
                 {blocks.map((b, idx) => {
                   const rect = getImageRenderRect();
                   if (!rect) return null;
@@ -540,7 +603,7 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
               </div>
             ) : (
               <div className="ocr-image-placeholder">
-                <div className="ocr-image-placeholder-text">
+                <div className="ocr-image-placeholder-text module-upload-empty-text">
                   Click or drop an image
                 </div>
               </div>
@@ -569,7 +632,11 @@ if (dataWithSize.imageSize?.width && dataWithSize.imageSize?.height) {
             <>
               <div className="ocr-text-box">
                 {text.split('\n').map((line, idx) => (
-                  <div key={idx} className="ocr-text-line">
+                  <div
+                    key={`${revealKey}-${idx}`}
+                    className="ocr-text-line"
+                    style={{ animationDelay: `${Math.min(idx * 0.035, 1.2)}s` }}
+                  >
                     {line}
                   </div>
                 ))}

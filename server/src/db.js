@@ -23,6 +23,17 @@ export function getDb() {
   return _db;
 }
 
+export function setDb(db) {
+  _db = db;
+}
+
+export function resetDb() {
+  if (_db) { try { _db.close(); } catch { /* ignore */ } }
+  _db = null;
+}
+
+export function initSchemaForTest(db) { initSchema(db); }
+
 /** @param {import('better-sqlite3').Database} db */
 function initSchema(db) {
   db.exec(`
@@ -68,6 +79,27 @@ function initSchema(db) {
       class_counts     TEXT NOT NULL DEFAULT '{}',
       total_detections INTEGER NOT NULL DEFAULT 0,
       source           TEXT NOT NULL DEFAULT 'object-detection'
+    );
+
+    CREATE TABLE IF NOT EXISTS reports (
+      id            TEXT PRIMARY KEY,
+      user_id       TEXT,
+      what_happened TEXT NOT NULL,
+      steps         TEXT,
+      contact       TEXT,
+      client_ref    TEXT,
+      viewport      TEXT,
+      language      TEXT,
+      created_at    TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_reports_created
+      ON reports(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      token      TEXT PRIMARY KEY,
+      user_id    TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      used       INTEGER NOT NULL DEFAULT 0
     );
   `);
 }

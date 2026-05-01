@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { saveLastWorkbenchResume } from "../lib/lastWorkbenchSession";
@@ -286,21 +286,20 @@ function analyzeSentiment(text: string): { sentiment: Sentiment; score: number }
     else if (neg > pos) neg += 1;
   }
 
+  const negators = new Set(["не", "ні", "not", "no", "don't", "dont"]);
+  const intensifiers = new Set(["дуже", "зовсім", "особливо", "трохи", "надто", "вельми", "so", "very", "really", "quite", "that"]);
+
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
     const prev = tokens[i - 1];
 
     const isNegation =
-      prev === "не" ||
-      prev === "ні" ||
-      prev === "not" ||
-      prev === "no" ||
-      prev === "don't" ||
-      prev === "dont";
+      (prev !== undefined && negators.has(prev)) ||
+      (i >= 2 && negators.has(tokens[i - 2]) && intensifiers.has(prev));
 
 
     const uaPosRoots = ["сподоб", "подоб", "задовол", "рекоменд", "вдяч", "супер", "чудов", "класн", "гарн", "крут", "відмін", "прекрас", "добр", "любл", "обожн", "захопл", "радіє", "щаслив", "позитив", "приємн", "зручн", "цікав", "смачн", "корисн", "якісн", "зручніш"];
-    const uaNegRoots = ["незадовол", "розчар", "проблем", "помил", "дорог", "альтернатив", "непрац", "ламан", "обман", "ігнор", "навяз", "нав\u2019яз", "запропон", "груб", "хам", "халат", "непрофес", "некорект", "якіст", "якост", "нуль", "дно", "здерт", "насиль", "змуш", "спізн", "перенос", "запис"];
+    const uaNegRoots = ["незадовол", "розчар", "проблем", "помил", "дорог", "альтернатив", "непрац", "ламан", "обман", "ігнор", "навяз", "нав\u2019яз", "запропон", "груб", "хам", "халат", "непрофес", "некорект", "якіст", "якост", "нуль", "дно", "здерт", "насиль", "змуш", "спізн", "перенос", "запис", "жахлив", "жахл", "страшн", "жахіт", "кошмар", "огидн", "бридк", "погірш", "гірш", "найгірш", "невдал", "провальн", "катастроф"];
     const hasRoot = (roots: string[]) => roots.some((r) => t.startsWith(r));
     if (hasRoot(uaPosRoots)) {
       if (isNegation) neg += 1;
@@ -346,6 +345,30 @@ function analyzeSentiment(text: string): { sentiment: Sentiment; score: number }
  * sentimentLabel('positive') // повертає 'Positive'
  * sentimentLabel('neutral')  // повертає 'Neutral'
  */
+const WAVEFORM_BARS = 30;
+const WAVEFORM_DELAYS = Array.from({ length: WAVEFORM_BARS }, (_, i) =>
+  `${((i * 7 + 3) % 13) / 20}s`
+);
+const WAVEFORM_DURS = Array.from({ length: WAVEFORM_BARS }, (_, i) =>
+  `${0.42 + ((i * 11 + 5) % 17) / 30}s`
+);
+
+function WaveformBars() {
+  return (
+    <div className="tr-waveform">
+      {Array.from({ length: WAVEFORM_BARS }, (_, i) => (
+        <div
+          key={i}
+          className="tr-waveform-bar"
+          style={
+            { animationDelay: WAVEFORM_DELAYS[i], '--dur': WAVEFORM_DURS[i] } as React.CSSProperties
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
 function sentimentLabel(s: Sentiment) {
   if (s === "positive") return "Positive";
   if (s === "negative") return "Negative";
@@ -385,6 +408,8 @@ export function MediaTranscriberPage() {
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const startRef = useRef<number>(0);
+  const lastSegmentTimeRef = useRef<number>(0);
+
 
   useEffect(() => {
     textRef.current = text;
@@ -460,6 +485,7 @@ export function MediaTranscriberPage() {
     setSegments([]);
     setText("");
     setStatus("Cleared");
+    historyHashRef.current = "";
   };
 
   const stop = () => {
@@ -479,7 +505,7 @@ export function MediaTranscriberPage() {
       saveLastWorkbenchResume("/transcriber", s);
       void addHistoryEntry({
         kind: "analysis",
-        label: `Транскрипт · ${t.slice(0, 72)}${t.length > 72 ? "…" : ""}`,
+        label: `Transcript · ${t.slice(0, 72)}${t.length > 72 ? "…" : ""}`,
         path: "/transcriber",
         resumePayload: s
       });
@@ -517,6 +543,8 @@ export function MediaTranscriberPage() {
       const cleaned = finalText.trim();
       if (!cleaned) return;
       const tMs = nowMs() - startRef.current;
+      const pauseMs = lastSegmentTimeRef.current ? tMs - lastSegmentTimeRef.current : 0;
+      lastSegmentTimeRef.current = tMs;
       const r = analyzeSentiment(cleaned);
       const seg: Segment = {
         id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -526,7 +554,21 @@ export function MediaTranscriberPage() {
         score: r.score
       };
       setSegments((prev) => [...prev, seg].slice(-200));
-      setText((prev) => (prev ? `${prev} ${cleaned}` : cleaned));
+      setText((prev) => {
+        if (!prev) return cleaned[0].toUpperCase() + cleaned.slice(1);
+        const prevTrimmed = prev.trimEnd();
+        const endsWithPunct = /[.!?]$/.test(prevTrimmed);
+        const questionUA = /^(що|де|як|хто|чи|коли|куди|звідки|навіщо|чому|скільки|яки[йя]|яка|яке)\b/iu;
+        const questionEN = /^(what|where|how|who|when|why|which|whose|whom|is|are|was|were|do|does|did|can|could|would|should|have|has)\b/i;
+        const isQuestion = questionUA.test(cleaned) || questionEN.test(cleaned);
+        const newSentence = pauseMs > 800;
+        const cap = cleaned[0].toUpperCase() + cleaned.slice(1);
+        if (newSentence || isQuestion) {
+          const punct = isQuestion ? '?' : '.';
+          return endsWithPunct ? `${prevTrimmed} ${cap}` : `${prevTrimmed}${punct} ${cap}`;
+        }
+        return `${prevTrimmed} ${cleaned}`;
+      });
     };
     rec.onerror = () => {
       setStatus("Recognition error (check microphone permissions)");
@@ -554,6 +596,7 @@ export function MediaTranscriberPage() {
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
+
 
 
   /** Завантажує результати транскрибації та аналізу тональності у форматі JSON. */
@@ -587,6 +630,28 @@ export function MediaTranscriberPage() {
 
   const showSentimentPanel = mode === "mic" ? segments.length > 0 : text.trim().length > 0;
 
+  useEffect(() => {
+    if (mode !== "text" || !user) return;
+    const t = text.trim();
+    if (t.length < 10) return;
+    const timer = window.setTimeout(() => {
+      const hash = `${t.length}:${t.slice(0, 200)}`;
+      if (historyHashRef.current === hash) return;
+      historyHashRef.current = hash;
+      const payload: MihResumeTranscriber = { v: 1, module: "transcriber", text: t };
+      const s = JSON.stringify(payload);
+      if (s.length > 1_450_000) return;
+      saveLastWorkbenchResume("/transcriber", s);
+      void addHistoryEntry({
+        kind: "analysis",
+        label: `Text Analysis · ${t.slice(0, 72)}${t.length > 72 ? "…" : ""}`,
+        path: "/transcriber",
+        resumePayload: s
+      });
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [text, mode, user]);
+
   const trResultSnapshot = useMemo(() => {
     const t = text.trim();
     if (t.length < 10) return null;
@@ -609,7 +674,7 @@ export function MediaTranscriberPage() {
             {user && trResultSnapshot && (
               <FavoriteResultStar
                 path="/transcriber"
-                title={`Транскрипт · ${text.slice(0, 48)}${text.length > 48 ? '…' : ''}`}
+                title={`${mode === "text" ? "Text Analysis" : "Transcript"} · ${text.slice(0, 48)}${text.length > 48 ? "…" : ""}`}
                 previewImage=""
                 resumePayload={trResultSnapshot.resumePayload}
               />
@@ -668,11 +733,11 @@ export function MediaTranscriberPage() {
             </>
           ) : (
             <>
-              <button type="button" className="secondary-button" onClick={clearAll}>
+              <button type='button' className='secondary-button' onClick={clearAll} disabled={isListening}>
                 Clear
               </button>
               {text.trim().length > 0 ? (
-                <button type="button" className="secondary-button" onClick={handleExportJson}>
+                <button type='button' className='secondary-button' onClick={handleExportJson}>
                   ↓ Export JSON
                 </button>
               ) : null}
@@ -684,19 +749,20 @@ export function MediaTranscriberPage() {
           <div className="tr-main">
             <div className="tr-transcript">
               <div className="tr-transcript-title">Transcript</div>
+              {isListening && <WaveformBars />}
               <div className="tr-transcript-box">
-                <div className="tr-transcript-final">{text || "Press “Start” and speak…"}</div>
+                <div className="tr-transcript-final">{text || 'Press Start and speak...'}</div>
                 {interim ? <div className="tr-transcript-interim">{interim}</div> : null}
               </div>
             </div>
           </div>
         ) : (
-          <div className="tr-text-mode">
+          <div className='tr-text-mode'>
             <textarea
-              className="tr-textarea"
+              className='tr-textarea'
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Paste or type text here…"
+              placeholder='Paste or type text here...'
             />
           </div>
         )}
@@ -728,25 +794,25 @@ export function MediaTranscriberPage() {
           </div>
         </div>
 
-        <div className="tr-bars">
+        <div className="tr-bars" key={`${summary.positive}-${summary.negative}-${summary.neutral}`}>
           <div className="tr-bar-row">
             <span className="tr-bar-label">Positive</span>
             <div className="tr-bar">
-              <div className="tr-bar-fill tr-bar-fill--pos" style={{ width: `${summary.pPct}%` }} />
+              <div className="tr-bar-fill tr-bar-fill--pos" style={{ width: `${summary.pPct}%`, animationDelay: '0s' }} />
             </div>
             <span className="tr-bar-pct">{summary.pPct}%</span>
           </div>
           <div className="tr-bar-row">
             <span className="tr-bar-label">Negative</span>
             <div className="tr-bar">
-              <div className="tr-bar-fill tr-bar-fill--neg" style={{ width: `${summary.nPct}%` }} />
+              <div className="tr-bar-fill tr-bar-fill--neg" style={{ width: `${summary.nPct}%`, animationDelay: '0.1s' }} />
             </div>
             <span className="tr-bar-pct">{summary.nPct}%</span>
           </div>
           <div className="tr-bar-row">
             <span className="tr-bar-label">Neutral</span>
             <div className="tr-bar">
-              <div className="tr-bar-fill tr-bar-fill--neu" style={{ width: `${summary.uPct}%` }} />
+              <div className="tr-bar-fill tr-bar-fill--neu" style={{ width: `${summary.uPct}%`, animationDelay: '0.2s' }} />
             </div>
             <span className="tr-bar-pct">{summary.uPct}%</span>
           </div>
@@ -762,7 +828,7 @@ export function MediaTranscriberPage() {
           {summary.sentences.length === 0 ? (
             <div className="tr-empty"></div>
           ) : !showSentences ? (
-            <div className="tr-empty">List of sentences is hidden — click “Show”.</div>
+            <div className="tr-empty">List of sentences is hidden — click "Show".</div>
           ) : (
             <div className="tr-sentence-list">
               {summary.sentences.slice(0, 30).map((s, idx) => {

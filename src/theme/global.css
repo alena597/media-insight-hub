@@ -20,9 +20,7 @@ html {
   color: var(--text-primary);
 }
 
-/* =====================================================================
-   СВІТЛА ТЕМА — повний набір overrides для hardcoded dark кольорів
-   ===================================================================== */
+
 html.theme-light {
   color-scheme: light;
   --bg-root: #f1f5f9;
@@ -37,7 +35,6 @@ html.theme-light body {
   background-color: #f1f5f9;
 }
 
-/* Основна сітка */
 html.theme-light .app-root {
   background:
     radial-gradient(circle at top left, rgba(34, 211, 238, 0.08), transparent 55%),
@@ -45,7 +42,6 @@ html.theme-light .app-root {
     #f1f5f9;
 }
 
-/* Бічна панель */
 html.theme-light .sidebar {
   background: #ffffff;
   border-right-color: #e2e8f0;
@@ -55,26 +51,19 @@ html.theme-light .sidebar-footer {
   border-top-color: #e2e8f0;
 }
 
-/* Хедер */
 html.theme-light .app-header {
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(14px);
   border-bottom-color: #e2e8f0;
 }
 
-html.theme-light .app-header-btn:hover {
-  background: #f1f5f9;
-  border-color: rgba(34, 211, 238, 0.45);
-}
 
-/* Метрики дашборду */
 html.theme-light .dash-metric-card {
   background: #ffffff;
   border-color: #e2e8f0;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
 }
 
-/* Картки модулів */
 html.theme-light .dash-card {
   background: #ffffff;
   border-color: #e2e8f0;
@@ -86,7 +75,6 @@ html.theme-light .dash-card:hover {
   border-color: #cbd5e1;
 }
 
-/* Акцентні рамки карток у світлій темі */
 html.theme-light .accent-ocr-bg        { border-color: rgba(6, 182, 212, 0.32); }
 html.theme-light .accent-gallery-bg    { border-color: rgba(139, 92, 246, 0.32); }
 html.theme-light .accent-detection-bg  { border-color: rgba(16, 185, 129, 0.32); }
@@ -97,7 +85,6 @@ html.theme-light .dash-card.accent-gallery-bg:hover    { border-color: rgba(139,
 html.theme-light .dash-card.accent-detection-bg:hover  { border-color: rgba(16, 185, 129, 0.55); box-shadow: 0 8px 24px rgba(16, 185, 129, 0.12); }
 html.theme-light .dash-card.accent-transcriber-bg:hover { border-color: rgba(245, 158, 11, 0.55); box-shadow: 0 8px 24px rgba(245, 158, 11, 0.12); }
 
-/* Градієнти карток у світлій темі */
 html.theme-light .dash-card::before {
   mix-blend-mode: normal;
   opacity: 1;
@@ -135,7 +122,6 @@ html.theme-light .dash-card-fav:hover {
   background: #f8fafc;
 }
 
-/* Аналітичні картки */
 html.theme-light .dash-analytics-card {
   background: #ffffff;
   border-color: #e2e8f0;
@@ -156,7 +142,6 @@ html.theme-light .det-no-results {
   border-color: rgba(16, 185, 129, 0.22);
 }
 
-/* Transcriber: бурштиновий акцент */
 html.theme-light .tr-panel-grid {
   background: linear-gradient(155deg, rgba(245, 158, 11, 0.06) 0%, #ffffff 38%);
   border-color: rgba(245, 158, 11, 0.22);
@@ -167,17 +152,6 @@ html.theme-light .panel-grid > .panel:first-child {
   border-right-color: #e2e8f0;
 }
 
-/* Кнопки */
-html.theme-light .secondary-button {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-  color: #475569;
-}
-
-html.theme-light .secondary-button:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
 
 html.theme-light .badge,
 html.theme-light .label-pill {
@@ -241,7 +215,7 @@ html.theme-light .dash-card-icon {
   border: 1px solid rgba(34, 211, 238, 0.25);
 }
 
-/* ── Smart Gallery ──────────────────────────────────────────────────── */
+/* Smart Gallery */
 html.theme-light .sg-layout {
   background: linear-gradient(155deg, rgba(139, 92, 246, 0.06) 0%, #ffffff 38%);
   border-color: rgba(139, 92, 246, 0.22);
@@ -284,7 +258,7 @@ html.theme-light .file-drop-zone {
   color: #64748b;
 }
 
-/* ── OCR layout ─────────────────────────────────────────────────────── */
+/* OCR layout */
 html.theme-light .ocr-layout {
   background: linear-gradient(155deg, rgba(6, 182, 212, 0.06) 0%, #ffffff 38%);
   border-color: rgba(6, 182, 212, 0.22);
@@ -309,10 +283,17 @@ html.theme-light .lang-chip--active {
   background: rgba(34, 211, 238, 0.1); border-color: rgba(34, 211, 238, 0.5); color: #0e7490;
 }
 
-/* ── Object Detection ──────────────────────────────────────────────── */
+.module-upload-empty-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+/*  Object Detection */
 html.theme-light .det-media { background: #e8edf2; }
 html.theme-light .det-empty-title { color: #0f172a; }
 html.theme-light .det-empty-sub { color: #64748b; }
+html.theme-light .module-upload-empty-text { color: #64748b; }
 html.theme-light .det-list-empty {
   background: #f8fafc; border-color: #e2e8f0; color: #475569;
 }
@@ -340,7 +321,7 @@ html.theme-light .tr-tab--active {
 html.theme-light .det-stage-loading { background: rgba(241, 245, 249, 0.7); }
 html.theme-light .det-hint { color: #94a3b8; }
 
-/* ── Media Transcriber ──────────────────────────────────────────────── */
+/* Media Transcriber */
 html.theme-light .tr-transcript-box,
 html.theme-light .tr-empty,
 html.theme-light .tr-kpi {
@@ -363,7 +344,7 @@ html.theme-light .tr-seg-text,
 html.theme-light .tr-sentence-text { color: #0f172a; }
 html.theme-light .tr-pill { background: rgba(241, 245, 249, 0.8); }
 
-/* ── History (Archive) ──────────────────────────────────────────────── */
+/* History (Archive) */
 html.theme-light .archive-card {
   background: #ffffff;
   border-color: #e2e8f0;
@@ -385,7 +366,7 @@ html.theme-light .archive-filter-btn--active {
 }
 html.theme-light .mih-trash-icon-btn { background: rgba(255, 255, 255, 0.92); }
 
-/* ── Favorites ──────────────────────────────────────────────────────── */
+/*  Favorites  */
 html.theme-light .fav-card-visual { background: #f1f5f9; }
 html.theme-light .fav-card-placeholder {
   background: linear-gradient(135deg, rgba(241, 245, 249, 0.9), rgba(226, 232, 240, 0.95));
@@ -398,7 +379,7 @@ html.theme-light .fav-card-chip {
   color: #b45309;
 }
 
-/* ── Спільні елементи з hardcoded кольором ───────────────────────────── */
+/* Спільні елементи з hardcoded кольором  */
 html.theme-light .lang-chip { background: #f8fafc; border-color: #e2e8f0; color: #475569; }
 html.theme-light .det-zone { background: #f8fafc; }
 html.theme-light .archive-hero .archive-title { color: #0f172a; }

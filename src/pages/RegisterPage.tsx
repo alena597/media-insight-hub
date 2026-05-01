@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+﻿import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ApiError } from '../lib/api';
@@ -23,7 +23,7 @@ export function RegisterPage() {
     e.preventDefault();
     setError(null);
     if (!authReady) {
-      setError(configMessage ?? 'API недоступне');
+      setError(configMessage ?? 'API unavailable');
       return;
     }
     setSubmitting(true);
@@ -34,7 +34,7 @@ export function RegisterPage() {
       if (err instanceof ApiError) {
         setError(messageForAuthFormError(err));
       } else {
-        setError('Не вдалося з’єднатися з сервером.');
+        setError('Could not connect to the server.');
       }
     } finally {
       setSubmitting(false);
@@ -44,12 +44,12 @@ export function RegisterPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1 className="auth-title">Реєстрація</h1>
-        <p className="auth-sub">Створіть обліковий запис для збереження історії та обраного на сервері.</p>
+        <h1 className="auth-title">Register</h1>
+        <p className="auth-sub">Create an account to save your history and favourites.</p>
         {configMessage ? <p className="auth-banner">{configMessage}</p> : null}
         <form className="auth-form" onSubmit={onSubmit}>
           <label className="auth-label">
-            Ім’я (необов’язково)
+            Name (optional)
             <input
               className="auth-input"
               type="text"
@@ -70,7 +70,7 @@ export function RegisterPage() {
             />
           </label>
           <label className="auth-label">
-            Пароль (мін. 6 символів)
+            Password (min. 8 characters + digit)
             <input
               className="auth-input"
               type="password"
@@ -78,18 +78,18 @@ export function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={8}
             />
           </label>
           {error ? <p className="auth-error">{error}</p> : null}
           <button className="auth-submit" type="submit" disabled={submitting || !authReady}>
-            {submitting ? 'Створення…' : 'Зареєструватися'}
+            {submitting ? 'Creating…' : 'Create account'}
           </button>
         </form>
         <p className="auth-footer">
-          Вже є акаунт? <Link to="/login">Увійти</Link>
+          Already have an account? <Link to="/login">Log in</Link>
           <br />
-          <Link to="/dashboard">На головну</Link>
+          <Link to="/dashboard">Home</Link>
         </p>
       </div>
     </div>

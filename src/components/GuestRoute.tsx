@@ -18,7 +18,7 @@ export function GuestRoute({ children }: Props) {
   if (!authReady) {
     return (
       <div className="auth-gate">
-        <p className="auth-gate-text">{configMessage ?? 'Завантаження…'}</p>
+        <p className="auth-gate-text">{configMessage ?? 'Loading…'}</p>
       </div>
     );
   }
@@ -26,7 +26,7 @@ export function GuestRoute({ children }: Props) {
   if (loading) {
     return (
       <div className="auth-gate">
-        <p className="auth-gate-text">Завантаження сесії…</p>
+        <p className="auth-gate-text">Loading session…</p>
       </div>
     );
   }

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Стиснення зображення з HTMLImageElement у JPEG data URL.
  *
  * @param img - Елемент зображення.
@@ -39,7 +39,7 @@ export function dataUrlFromImageElement(
 }
 
 /**
- * Мініатюра для прев’ю в історії / обраному.
+ * Мініатюра для прев'ю в історії / обраному.
  *
  * @param dataUrl - Вхідний data URL.
  * @param maxSize - Максимальний розмір більшої сторони.

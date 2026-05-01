@@ -1,5 +1,5 @@
 /**
- * Прев’ю карток історії/обраного: градієнт за маршрутом (без canvas) + витяг кадру з resume JSON.
+ * Прев'ю карток історії/обраного: градієнт за маршрутом (без canvas) + витяг кадру з resume JSON.
  */
 
 const PALETTES: Record<string, [string, string, string]> = {
@@ -39,6 +39,12 @@ export function extractImageDataUrlFromResumePayload(resumePayload?: string): st
     if (typeof o.imageDataUrl === 'string' && o.imageDataUrl.startsWith('data:')) {
       return o.imageDataUrl;
     }
+    if (mod === 'detection' && Array.isArray(o.items) && o.items.length > 0) {
+      const first = o.items[0] as Record<string, unknown>;
+      if (typeof first.imageDataUrl === 'string' && first.imageDataUrl.startsWith('data:')) {
+        return first.imageDataUrl;
+      }
+    }
     if (mod === 'gallery' && Array.isArray(o.items) && o.items.length > 0) {
       const first = o.items[0] as Record<string, unknown>;
       if (typeof first.imageDataUrl === 'string' && first.imageDataUrl.startsWith('data:')) {
@@ -52,11 +58,11 @@ export function extractImageDataUrlFromResumePayload(resumePayload?: string): st
 }
 
 /**
- * Підбирає URL для зображення на картці: збережене прев’ю → кадр з resume → градієнт модуля.
+ * Підбирає URL для зображення на картці: збережене прев'ю → кадр з resume → градієнт модуля.
  *
  * @param row - Запис з API або локальної черги.
  * @param row.path - Маршрут модуля.
- * @param row.previewImage - Data URL прев’ю.
+ * @param row.previewImage - Data URL прев'ю.
  * @param row.resumePayload - JSON відновлення (може містити imageDataUrl).
  * @returns URL для атрибута `src` у `<img>`.
  */

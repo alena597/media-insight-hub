@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { TrashIconButton } from '../components/TrashIconButton';
 import { useAuth } from '../hooks/useAuth';
@@ -10,7 +10,7 @@ import { isMihResume, type MihResume } from '../lib/mihResume';
 
 const formatTs = (ms: number): string => {
   try {
-    return new Date(ms).toLocaleString('uk-UA', {
+    return new Date(ms).toLocaleString('en-GB', {
       dateStyle: 'short',
       timeStyle: 'short'
     });
@@ -57,7 +57,7 @@ export function FavoritesPage() {
           setError(null);
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Помилка завантаження');
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load');
       }
     })();
     return () => {
@@ -74,7 +74,7 @@ export function FavoritesPage() {
       const list = await fetchFavorites();
       setItems(list);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Не вдалося видалити');
+      setError(err instanceof Error ? err.message : 'Failed to remove');
     } finally {
       setRemovingId(null);
     }
@@ -85,15 +85,15 @@ export function FavoritesPage() {
   return (
     <div className="archive-page">
       <header className="archive-hero">
-        <h1 className="archive-title">Обране</h1>
-        <p className="archive-subtitle">Збережені модулі та результати аналізів</p>
+        <h1 className="archive-title">Favourites</h1>
+        <p className="archive-subtitle">Saved modules and analysis results</p>
       </header>
 
       {error ? <p className="auth-error">{error}</p> : null}
 
       {items.length === 0 ? (
         <p className="page-empty archive-empty">
-          Натисніть зірку на картці модуля на головній або збережіть результат у модулі.
+          Click the star on a module card on the home page, or save a result inside a module.
         </p>
       ) : (
         <ul className="archive-grid">
@@ -113,7 +113,7 @@ export function FavoritesPage() {
                   </Link>
                   <TrashIconButton
                     className="fav-card-trash"
-                    ariaLabel="Прибрати з обраного"
+                    ariaLabel="Remove from favourites"
                     disabled={removingId === row.id}
                     onClick={(e) => {
                       e.preventDefault();
@@ -137,7 +137,7 @@ export function FavoritesPage() {
                   </div>
                   <div className="fav-card-actions-min">
                     <Link to={to} state={state} className="fav-card-open-link" onClick={stash}>
-                      Відкрити
+                      Open
                     </Link>
                   </div>
                 </div>

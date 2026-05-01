@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TrashIconButton } from '../components/TrashIconButton';
 import { useAuth } from '../hooks/useAuth';
@@ -11,7 +11,7 @@ import { isMihResume, type MihResume } from '../lib/mihResume';
 
 const formatArchiveDate = (ms: number): string => {
   try {
-    return new Date(ms).toLocaleString('uk-UA', {
+    return new Date(ms).toLocaleString('en-GB', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -27,7 +27,7 @@ const formatArchiveDate = (ms: number): string => {
  * Парсить JSON відновлення з бекенду.
  *
  * @param s - Рядок JSON або undefined.
- * @returns Об’єкт MihResume або null.
+ * @returns Об'єкт MihResume або null.
  */
 function parseResume(s?: string): MihResume | null {
   if (!s) return null;
@@ -65,7 +65,7 @@ export function HistoryPage() {
           setError(null);
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Помилка завантаження');
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load');
       }
     })();
     return () => {
@@ -99,7 +99,7 @@ export function HistoryPage() {
         clearLastWorkbenchForCurrentUser();
         setItems([]);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Не вдалося очистити');
+        setError(e instanceof Error ? e.message : 'Failed to clear');
       } finally {
         setClearing(false);
       }
@@ -114,7 +114,7 @@ export function HistoryPage() {
         await removeHistoryEntry(id);
         setItems((prev) => prev.filter((x) => x.id !== id));
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Не вдалося видалити');
+        setError(e instanceof Error ? e.message : 'Failed to delete');
       } finally {
         setDeletingId(null);
       }
@@ -141,17 +141,17 @@ export function HistoryPage() {
   return (
     <div className="archive-page">
       <header className="archive-hero">
-        <h1 className="archive-title">Архів аналізів</h1>
-        <p className="archive-subtitle">Історія обробки медіафайлів</p>
+        <h1 className="archive-title">Analysis Archive</h1>
+        <p className="archive-subtitle">History of media processing</p>
       </header>
 
       <div className="archive-toolbar">
         <label className="archive-search-wrap">
-          <span className="visually-hidden">Пошук в архіві</span>
+          <span className="visually-hidden">Search archive</span>
           <input
             type="search"
             className="archive-search"
-            placeholder="Пошук в архіві…"
+            placeholder="Search archive…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             autoComplete="off"
@@ -161,7 +161,7 @@ export function HistoryPage() {
           type="button"
           className={`archive-filter-btn ${analysisOnly ? 'archive-filter-btn--active' : ''}`}
           onClick={() => setAnalysisOnly((v) => !v)}
-          title="Лише аналізи"
+          title="Analyses only"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
             <path
@@ -177,7 +177,7 @@ export function HistoryPage() {
             disabled={clearing}
             onClick={handleClearHistory}
           >
-            {clearing ? 'Очищення…' : 'Очистити все'}
+            {clearing ? 'Clearing…' : 'Clear all'}
           </button>
         ) : null}
       </div>
@@ -186,10 +186,10 @@ export function HistoryPage() {
 
       {items.length === 0 ? (
         <p className="page-empty archive-empty">
-          Поки порожньо. Після аналізу в модулях з’являться прев’ю та збережений стан.
+          Nothing yet. After running analysis in a module, previews and saved state will appear here.
         </p>
       ) : filteredItems.length === 0 ? (
-        <p className="page-empty archive-empty">Нічого не знайдено за запитом.</p>
+        <p className="page-empty archive-empty">Nothing found for that query.</p>
       ) : (
         <ul className="archive-grid">
           {filteredItems.map((row) => {
@@ -208,7 +208,7 @@ export function HistoryPage() {
                   <span className="archive-badge archive-badge--tl">{stats.leftBadge}</span>
                   <TrashIconButton
                     className="archive-card-trash"
-                    ariaLabel="Видалити запис з архіву"
+                    ariaLabel="Delete entry from archive"
                     disabled={deletingId === row.id}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -233,13 +233,13 @@ export function HistoryPage() {
                     <div className="archive-card-stats">
                       {stats.objects > 0 && (
                         <div className="archive-stat archive-stat--objects">
-                          <span className="archive-stat-label">Об’єкти</span>
+                          <span className="archive-stat-label">Objects</span>
                           <span className="archive-stat-value">{stats.objects}</span>
                         </div>
                       )}
                       {stats.keywords > 0 && (
                         <div className="archive-stat archive-stat--keywords">
-                          <span className="archive-stat-label">Слів</span>
+                          <span className="archive-stat-label">Words</span>
                           <span className="archive-stat-value">{stats.keywords}</span>
                         </div>
                       )}

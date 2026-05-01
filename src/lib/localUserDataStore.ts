@@ -1,4 +1,4 @@
-import type { FavoriteItem, HistoryEntry } from './userDataTypes';
+﻿import type { FavoriteItem, HistoryEntry } from './userDataTypes';
 
 const H_PREFIX = 'mih_pending_history_v1:';
 const F_PREFIX = 'mih_pending_favorites_v1:';
@@ -143,7 +143,7 @@ function byTimeDesc<T extends { createdAtMs: number }>(a: T, b: T): number {
 }
 
 /**
- * Об’єднує відповідь сервера з локальними «завислими» записами (різні id).
+ * Об'єднує відповідь сервера з локальними «завислими» записами (різні id).
  *
  * @param remote - Записи з API.
  * @param pending - Локальні записи після невдалого POST.
@@ -156,7 +156,7 @@ export function mergeHistory(remote: HistoryEntry[], pending: HistoryEntry[]): H
 }
 
 /**
- * Об’єднує обране сервера з локальним.
+ * Об'єднує обране сервера з локальним.
  *
  * @param remote - З API.
  * @param pending - Локальне.

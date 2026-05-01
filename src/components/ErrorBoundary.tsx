@@ -38,28 +38,28 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="auth-page">
           <div className="auth-card error-page-card error-page-card--wide">
-            <h1 className="auth-title">Щось пішло не так</h1>
+            <h1 className="auth-title">Something went wrong</h1>
             <p className="auth-sub">
-              Інтерфейс зупинився через неочікувану помилку. Ваші дані в браузері зазвичай у безпеці;
-              спробуйте оновити сторінку або повернутися до панелі.
+              The interface stopped due to an unexpected error. Your browser data is usually safe;
+              try refreshing the page or going back to the dashboard.
             </p>
             {ref ? (
               <p className="auth-banner" role="status">
-                Код інциденту в браузері: <strong>{ref}</strong>
-                <span className="error-page-muted" style={{ display: 'block', marginTop: '0.5rem' }}>
-                  Вкажіть його у формі зворотного зв’язку — так простіше знайти запис у логах.
+                Browser incident ID: <strong>{ref}</strong>
+                <span className="error-page-muted" style={{ display: "block", marginTop: "0.5rem" }}>
+                  {" "}Include it in the feedback form — it helps locate the log entry faster.
                 </span>
               </p>
             ) : null}
             <div className="error-page-actions-row">
               <button type="button" className="auth-submit" onClick={() => window.location.reload()}>
-                Оновити сторінку
+                Refresh page
               </button>
               <Link to="/dashboard" className="error-page-link">
-                На панель
+                Dashboard
               </Link>
               <Link to={reportTo} className="error-page-link error-page-link--primary">
-                Повідомити про проблему
+                Report a problem
               </Link>
             </div>
           </div>

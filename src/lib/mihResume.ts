@@ -1,8 +1,4 @@
-/** Стан відновлення для детекції (image mode). */
-export type MihResumeDetection = {
-  v: 1;
-  module: 'detection';
-  mode: 'image';
+export type MihResumeDetectionItem = {
   imageDataUrl: string;
   detections: Array<{
     bbox: [number, number, number, number];
@@ -10,6 +6,32 @@ export type MihResumeDetection = {
     score: number;
   }>;
 };
+
+/** Стан відновлення для детекції (image/batch mode). */
+export type MihResumeDetection = {
+  v: 1;
+  module: 'detection';
+  mode: 'image' | 'batch' | 'video';
+} & (
+  {
+    mode: 'image';
+    imageDataUrl: string;
+    detections: MihResumeDetectionItem['detections'];
+  } | {
+    mode: 'batch';
+    items: MihResumeDetectionItem[];
+    batchMeta?: {
+      batchCount?: number;
+      sessionTotals?: Record<string, number>;
+    };
+  } | {
+    mode: 'video';
+    imageDataUrl?: string;
+    detections?: MihResumeDetectionItem['detections'];
+    frameCount?: number;
+    sessionTotals?: Record<string, number>;
+  }
+);
 
 export type MihResumeOcr = {
   v: 1;
@@ -61,9 +83,9 @@ export function isMihResume(x: unknown): x is MihResume {
  * Відновлює масив детекцій для TF-моделі з серіалізованих даних.
  *
  * @param parts - Збережені bbox та класи.
- * @returns Масив об’єктів детекції.
+ * @returns Масив об'єктів детекції.
  */
-export function detectionsFromResume(parts: MihResumeDetection['detections']) {
+export function detectionsFromResume(parts: MihResumeDetectionItem['detections']) {
   return parts.map((p) => ({
     bbox: p.bbox,
     class: p.class,

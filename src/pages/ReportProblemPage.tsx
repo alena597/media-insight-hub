@@ -1,15 +1,12 @@
-import { FormEvent, useMemo, useState } from 'react';
+﻿import { FormEvent, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { sendClientLog } from '../lib/clientLogger';
+import { apiJson } from '../lib/api';
+import { useAuth } from '../hooks/useAuth';
 
-/**
- * Форма зворотного зв’язку при збоях: кроки відтворення та опційні коди з API / клієнта.
- *
- * @returns Елемент сторінки.
- */
 export function ReportProblemPage() {
   const [params] = useSearchParams();
   const prefilledClientRef = params.get('clientRef')?.trim() || '';
+  const { user } = useAuth();
 
   const [whatHappened, setWhatHappened] = useState('');
   const [steps, setSteps] = useState('');
@@ -18,41 +15,50 @@ export function ReportProblemPage() {
   const [contact, setContact] = useState('');
   const [sent, setSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const clientRef = useMemo(
     () => prefilledClientRef || undefined,
     [prefilledClientRef]
   );
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    sendClientLog('info', 'user_support_report', {
-      whatHappened: whatHappened.slice(0, 4000),
-      steps: steps.slice(0, 4000),
-      requestId: requestId.trim() || undefined,
-      errorId: errorId.trim() || undefined,
-      clientRef,
-      contact: contact.trim() || undefined,
-      viewport: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : undefined,
-      language: typeof navigator !== 'undefined' ? navigator.language : undefined
-    });
-    setSent(true);
-    setSubmitting(false);
+    setSubmitError('');
+    try {
+      await apiJson('/api/reports', {
+        method: 'POST',
+        body: JSON.stringify({
+          whatHappened: whatHappened.trim(),
+          steps: steps.trim() || undefined,
+          contact: contact.trim() || undefined,
+          clientRef: clientRef || requestId.trim() || errorId.trim() || undefined,
+          userId: user?.id ?? undefined,
+          viewport: `${window.innerWidth}x${window.innerHeight}`,
+          language: navigator.language,
+        }),
+      });
+      setSent(true);
+    } catch {
+      setSubmitError('Failed to send the report. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="dash-header" style={{ maxWidth: '36rem' }}>
-      <h2>Повідомити про проблему</h2>
+      <h2>Report a problem</h2>
       <p className="dash-header-lead">
-        Опишіть, що відбувалося перед помилкою. Технічні деталі (коди запиту) вказуйте лише якщо вони
-        з’явилися на екрані — вони допомагають знайти запис у журналі сервера.
+        Describe what was happening before the error. Include technical details (request codes) only
+        if they appeared on screen — they help locate the server log entry.
       </p>
       {sent ? (
         <div className="auth-banner" style={{ marginTop: '1rem' }}>
-          Дякуємо. Повідомлення передано. Можна закрити сторінку або{' '}
+          Thank you. Your report has been submitted. You can close this page or{' '}
           <Link to="/dashboard" style={{ color: '#67e8f9' }}>
-            повернутися на панель
+            go back to the dashboard
           </Link>
           .
         </div>
@@ -60,30 +66,30 @@ export function ReportProblemPage() {
         <form className="auth-form" style={{ marginTop: '1rem' }} onSubmit={onSubmit}>
           {clientRef ? (
             <p className="error-page-muted">
-              Код інциденту з повідомлення про помилку: <strong>{clientRef}</strong>
+              Incident ID from the error message: <strong>{clientRef}</strong>
             </p>
           ) : null}
           <label className="auth-label">
-            Що сталося?
+            What happened?
             <textarea
               className="auth-input error-page-textarea"
               value={whatHappened}
               onChange={(ev) => setWhatHappened(ev.target.value)}
               required
-              placeholder="Наприклад: після натискання «Зберегти» з’явилося повідомлення про помилку."
+              placeholder="For example: after clicking &quot;Save&quot; an error message appeared."
             />
           </label>
           <label className="auth-label">
-            Кроки для відтворення (за бажанням)
+            Steps to reproduce (optional)
             <textarea
               className="auth-input error-page-textarea"
               value={steps}
               onChange={(ev) => setSteps(ev.target.value)}
-              placeholder="1. Відкрив модуль OCR&#10;2. Завантажив зображення&#10;3. …"
+              placeholder="1. Opened the OCR module&#10;2. Uploaded an image&#10;3. …"
             />
           </label>
           <label className="auth-label">
-            Код запиту (requestId), якщо був показаний
+            Request ID (requestId), if shown on screen
             <input
               className="auth-input"
               value={requestId}
@@ -92,7 +98,7 @@ export function ReportProblemPage() {
             />
           </label>
           <label className="auth-label">
-            Код інциденту (errorId), якщо був показаний
+            Incident ID (errorId), if shown on screen
             <input
               className="auth-input"
               value={errorId}
@@ -101,7 +107,7 @@ export function ReportProblemPage() {
             />
           </label>
           <label className="auth-label">
-            Контакт для уточнення (email, за бажанням)
+            Contact for follow-up (email, optional)
             <input
               className="auth-input"
               type="email"
@@ -111,10 +117,13 @@ export function ReportProblemPage() {
             />
           </label>
           <p className="error-page-muted">
-            Скріншоти зараз не завантажуються через форму; за потреби опишіть вміст екрана текстом.
+            Screenshots cannot be uploaded via the form; if needed, describe the screen contents in text.
           </p>
+          {submitError && (
+            <p className="auth-error">{submitError}</p>
+          )}
           <button className="auth-submit" type="submit" disabled={submitting}>
-            {submitting ? 'Надсилання…' : 'Надіслати'}
+            {submitting ? "Sending\u2026" : "Send"}
           </button>
         </form>
       )}
